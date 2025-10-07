@@ -9,6 +9,7 @@ dependencies = [
     "fastapi[all]>=0.118.0",
     "numpy>=2.3.3",
     "pdf2image>=1.17.0",
+    "pdfplumber>=0.11.7",
     "pypdf2>=3.0.1",
     "pytesseract>=0.3.13",
     "sentence-transformers>=5.1.1",

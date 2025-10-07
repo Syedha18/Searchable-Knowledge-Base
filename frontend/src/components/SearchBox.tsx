@@ -1,6 +1,6 @@
 import { useState } from "react";
 import useSearch from "../hooks/useSearch";
-import { highlightQuery } from "../utils/highlight";
+import { highlightMultipleSnippets } from "../utils/highlight";
 
 export default function SearchBox() {
     const [query, setQuery] = useState("");
@@ -41,10 +41,15 @@ export default function SearchBox() {
                 {results.map((r, i) => (
                     <div key={i} className="p-4 bg-gray-900 border border-gray-700 rounded-lg">
                         <h3 className="font-semibold text-lg text-blue-400">{r.title}</h3>
-                        <p
-                            className="text-gray-300 mt-1"
-                            dangerouslySetInnerHTML={{ __html: highlightQuery(r.content, query) }}
-                        ></p>
+
+                        {highlightMultipleSnippets(r.content, query).map((snippet, j) => (
+                            <p
+                                key={j}
+                                className="text-gray-300 mt-1"
+                                dangerouslySetInnerHTML={{ __html: snippet }}
+                            ></p>
+                        ))}
+
                         {r.score !== undefined && (
                             <p className="text-sm text-gray-500 mt-1">Score: {r.score.toFixed(3)}</p>
                         )}

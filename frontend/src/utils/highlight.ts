@@ -1,23 +1,32 @@
-export function highlightQuery(
+export function highlightMultipleSnippets(
     text: string,
     query: string,
-    snippetLength = 50
-): string {
-    if (!query) return text;
+    snippetLength = 50,
+    maxSnippets = 3
+): string[] {
+    if (!query) return [text.slice(0, snippetLength*2) + (text.length > snippetLength*2 ? "…" : "")];
 
     const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
     const matches = [...text.matchAll(regex)];
 
-    if (!matches.length) return text.slice(0, snippetLength * 2) + (text.length > snippetLength * 2 ? "…" : "");
+    if (!matches.length) return [text.slice(0, snippetLength*2) + (text.length > snippetLength*2 ? "…" : "")];
 
-    // Take first match for snippet
-    const firstMatch = matches[0];
-    const start = Math.max(firstMatch.index! - snippetLength, 0);
-    const end = Math.min(firstMatch.index! + query.length + snippetLength, text.length);
+    const snippets: string[] = [];
+    let count = 0;
 
-    const snippet = text.slice(start, end);
+    for (const match of matches) {
+        if (count >= maxSnippets) break;
 
-    // Highlight query
-    const highlighted = snippet.replace(regex, '<mark class="bg-yellow-400 text-black">$1</mark>');
-    return highlighted;
+        const start = Math.max(match.index! - snippetLength, 0);
+        const end = Math.min(match.index! + query.length + snippetLength, text.length);
+        let snippet = text.slice(start, end);
+
+        // Highlight all occurrences in the snippet
+        snippet = snippet.replace(regex, '<mark class="bg-yellow-400 text-black">$1</mark>');
+
+        snippets.push(snippet);
+        count++;
+    }
+
+    return snippets;
 }
