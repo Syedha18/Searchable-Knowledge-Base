@@ -8,3 +8,15 @@ wheels/
 
 # Virtual environments
 .venv
+
+# IDE files
+.idea/
+.vscode/
+
+# Python virtual environments
+.venv/
+
+# Sample PDFs
+*.pdf
+
+.data
