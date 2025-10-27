@@ -1,0 +1,17 @@
+# PDF Processing
+PyMuPDF>=1.23.0
+pdfplumber>=0.10.0
+Pillow>=10.0.0
+
+# Image Captioning (BLIP model)
+transformers>=4.35.0
+torch>=2.0.0
+accelerate>=0.20.0
+
+# Web Framework
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-multipart>=0.0.6
+
+# Utilities
+opencv-python>=4.8.0

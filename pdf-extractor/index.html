@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Content Extractor - Professional</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.8em;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.2em;
+            font-weight: 400;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 50px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f0ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-section.dragover {
+            background: #e0e0ff;
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            display: inline-block;
+            padding: 18px 45px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 1.15em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-label:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(102, 126, 234, 0.5);
+        }
+
+        .file-name {
+            margin-top: 25px;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 1.15em;
+        }
+
+        .upload-btn {
+            display: block;
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.3em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .upload-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(102, 126, 234, 0.5);
+        }
+
+        .upload-btn:disabled {
+            background: linear-gradient(135deg, #ccc 0%, #999 100%);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            display: none;
+        }
+
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 25px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading p {
+            font-size: 1.1em;
+            color: #555;
+            margin: 10px 0;
+        }
+
+        .results {
+            display: none;
+            margin-top: 40px;
+        }
+
+        .results-header {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2em;
+            font-weight: 700;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .result-section {
+            background: #ffffff;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+
+        .result-section h3 {
+            color: #667eea;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .item {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border-left: 5px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .item:hover {
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+            transform: translateX(5px);
+        }
+
+        .item-type {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 15px;
+        }
+
+        .item-header {
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 1.15em;
+        }
+
+        .item-detail {
+            color: #666;
+            font-size: 0.95em;
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .image-preview {
+            margin-top: 20px;
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .image-preview img {
+            max-width: 100%;
+            max-height: 500px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .image-preview img:hover {
+            transform: scale(1.02);
+        }
+         .table-preview {
+            margin-top: 20px;
+            overflow-x: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .table-preview table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+
+        .table-preview th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #5568d3;
+        }
+
+        .table-preview td {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            color: #333;
+        }
+
+        .table-preview tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        .table-preview tr:hover {
+            background-color: #e8f4f8;
+        }
+
+        .description {
+            background: linear-gradient(135deg, #e8f4f8 0%, #d4e9f7 100%);
+            padding: 18px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-style: normal;
+            color: #2c3e50;
+            border-left: 4px solid #667eea;
+            line-height: 1.6;
+            font-size: 1em;
+        }
+
+        .description::before {
+            content: "💬 ";
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: 700;
+            margin-left: auto;
+        }
+
+        .error {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            display: none;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        }
+
+        .download-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #f0f0ff;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .download-link:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .chart-preview {
+            margin-top: 20px;
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .chart-preview img {
+            max-width: 100%;
+            max-height: 600px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Modal for full-size image viewing */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            cursor: pointer;
+        }
+
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .table-preview {
+                font-size: 0.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 PDF Content Extractor Pro</h1>
+        <p class="subtitle">Professional PDF Analysis with AI-Powered Image Descriptions</p>
+
+        <div class="upload-section" id="uploadSection">
+            <label for="pdfFile" class="file-label">
+                📁 Choose PDF File or Drag & Drop
+            </label>
+            <input type="file" id="pdfFile" accept=".pdf">
+            <div class="file-name" id="fileName"></div>
+        </div>
+
+        <button class="upload-btn" id="uploadBtn" disabled>
+            🚀 Extract & Analyze Content
+        </button>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p><strong>Processing your PDF...</strong></p>
+            <p style="color: #666; font-size: 0.95em; margin-top: 10px;">
+                Extracting images, tables, and generating AI descriptions...
+            </p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="results" id="results">
+            <h2 class="results-header">📊 Extraction Results</h2>
+            
+            <div class="result-section" id="imagesSection" style="display: none;">
+                <h3>🖼️ Images <span class="badge" id="imageCount">0</span></h3>
+                <div id="imagesList"></div>
+            </div>
+
+            <div class="result-section" id="tablesSection" style="display: none;">
+                <h3>📋 Tables <span class="badge" id="tableCount">0</span></h3>
+                <div id="tablesList"></div>
+            </div>
+
+            <div class="result-section" id="chartsSection" style="display: none;">
+                <h3>📈 Charts & Graphs <span class="badge" id="chartCount">0</span></h3>
+                <div id="chartsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for full-size image viewing -->
+    <div id="imageModal" class="modal">
+        <span class="close-modal">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+
+    <script>
+        const pdfFileInput = document.getElementById('pdfFile');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileName = document.getElementById('fileName');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const errorDiv = document.getElementById('error');
+        const uploadSection = document.getElementById('uploadSection');
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const closeModal = document.querySelector('.close-modal');
+
+        // File selection
+        pdfFileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                fileName.textContent = `✅ Selected: ${file.name}`;
+                uploadBtn.disabled = false;
+            }
+        });
+
+        // Drag and drop
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                if (file.type === 'application/pdf') {
+                    pdfFileInput.files = e.dataTransfer.files;
+                    fileName.textContent = `✅ Selected: ${file.name}`;
+                    uploadBtn.disabled = false;
+                } else {
+                    showError('⚠️ Please upload a PDF file');
+                }
+            }
+        });
+
+        // Upload and process
+        uploadBtn.addEventListener('click', async function() {
+            const file = pdfFileInput.files[0];
+            if (!file) return;
+
+            // Reset UI
+            errorDiv.style.display = 'none';
+            results.style.display = 'none';
+            loading.style.display = 'block';
+            uploadBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('http://localhost:8000/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                await displayResults(data);
+                
+            } catch (error) {
+                showError(`❌ Error: ${error.message}. Make sure the server is running on localhost:8000`);
+            } finally {
+                loading.style.display = 'none';
+                uploadBtn.disabled = false;
+            }
+        });
+
+        async function displayResults(data) {
+            results.style.display = 'block';
+            results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            const { images, tables, charts } = data.extracted_content;
+
+            // Display images with preview
+            if (images.count > 0) {
+                document.getElementById('imagesSection').style.display = 'block';
+                document.getElementById('imageCount').textContent = images.count;
+                const imagesList = document.getElementById('imagesList');
+                
+                imagesList.innerHTML = images.items.map((img, index) => `
+                    <div class="item">
+                        <div class="item-type">Image ${index + 1}</div>
+                        <div class="item-header">📷 ${img.filename}</div>
+                        <div class="item-detail">
+                            <span>📄 Page ${img.page}</span>
+                            <span>•</span>
+                            <span>🎨 Format: ${img.format.toUpperCase()}</span>
+                        </div>
+                        <div class="image-preview">
+                            <img src="/${img.path}" alt="${img.filename}" 
+                                 onclick="openModal('/${img.path}')"
+                                 title="Click to view full size">
+                        </div>
+                        ${img.description ? `<div class="description">${img.description}</div>` : ''}
+                    </div>
+                `).join('');
+            }
+            // Display tables with preview
+            if (tables.count > 0) {
+                document.getElementById('tablesSection').style.display = 'block';
+                document.getElementById('tableCount').textContent = tables.count;
+                const tablesList = document.getElementById('tablesList');
+                
+                // Fetch and display table content
+                const tableItems = await Promise.all(tables.items.map(async (table, index) => {
+                    try {
+                        const response = await fetch(`/${table.path}`);
+                        const csvText = await response.text();
+                        const tableHtml = csvToHtmlTable(csvText);
+                        
+                        return `
+                            <div class="item">
+                                <div class="item-type">Table ${index + 1}</div>
+                                <div class="item-header">📊 ${table.filename}</div>
+                                <div class="item-detail">
+                                    <span>📄 Page ${table.page}</span>
+                                    <span>•</span>
+                                    <span>📏 ${table.rows} rows × ${table.columns} columns</span>
+                                </div>
+                                <div class="table-preview">
+                                    ${tableHtml}
+                                </div>
+                                <div class="item-detail" style="margin-top: 15px;">
+                                    <a href="/${table.path}" class="download-link" download>
+                                        📥 Download CSV
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    } catch (error) {
+                        console.error('Error loading table:', error);
+                        return `
+                            <div class="item">
+                                <div class="item-type">Table ${index + 1}</div>
+                                <div class="item-header">📊 ${table.filename}</div>
+                                <div class="item-detail">
+                                    <span>📄 Page ${table.page}</span>
+                                    <span>•</span>
+                                    <span>📏 ${table.rows} rows × ${table.columns} columns</span>
+                                </div>
+                                <div class="item-detail" style="margin-top: 15px;">
+                                    <a href="/${table.path}" class="download-link" download>
+                                        📥 Download CSV
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }));
+                
+                tablesList.innerHTML = tableItems.join('');
+            }
+
+            // Display charts with preview
+            if (charts.count > 0) {
+                document.getElementById('chartsSection').style.display = 'block';
+                document.getElementById('chartCount').textContent = charts.count;
+                const chartsList = document.getElementById('chartsList');
+                
+                chartsList.innerHTML = charts.items.map((chart, index) => `
+                    <div class="item">
+                        <div class="item-type">Chart ${index + 1}</div>
+                        <div class="item-header">📈 ${chart.filename}</div>
+                        <div class="item-detail">
+                            <span>📄 Page ${chart.page}</span>
+                            <span>•</span>
+                            <span>🎯 ${chart.type}</span>
+                        </div>
+                        <div class="chart-preview">
+                            <img src="/${chart.path}" alt="${chart.filename}"
+                                 onclick="openModal('/${chart.path}')"
+                                 title="Click to view full size">
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function csvToHtmlTable(csvText) {
+            const rows = csvText.trim().split('\n');
+            if (rows.length === 0) return '<p>Empty table</p>';
+            
+            // Limit to first 10 rows for preview
+            const previewRows = rows.slice(0, 10);
+            const hasMore = rows.length > 10;
+            
+            let html = '<table>';
+            
+            previewRows.forEach((row, index) => {
+                const cells = row.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
+                const tag = index === 0 ? 'th' : 'td';
+                html += '<tr>' + cells.map(cell => `<${tag}>${cell || '-'}</${tag}>`).join('') + '</tr>';
+            });
+            
+            html += '</table>';
+            
+            if (hasMore) {
+                html += `<p style="margin-top: 10px; color: #666; font-style: italic;">
+                    Showing first 10 rows of ${rows.length}. Download CSV for complete data.
+                </p>`;
+            }
+            
+            return html;
+        }
+
+        function openModal(imagePath) {
+            imageModal.style.display = 'block';
+            modalImage.src = imagePath;
+        }
+
+        closeModal.onclick = function() {
+            imageModal.style.display = 'none';
+        }
+
+        imageModal.onclick = function(e) {
+            if (e.target === imageModal) {
+                imageModal.style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            errorDiv.innerHTML = message;
+            errorDiv.style.display = 'block';
+            errorDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html> 
