@@ -1,9 +1,9 @@
 # chatbot/chatbot_service.py
 from typing import List, Dict, Optional
 
-from retrieval.retrieval_engine import RetrievalEngine  # your FAISS+NoSQL layer
-from context_builder import ContextBuilder
-from llm_interface import LocalLLMInterface
+from src.index.faiss_indexer import FAISSIndexer  # your FAISS+NoSQL layer
+from chatbot.context_builder import ContextBuilder
+from chatbot.llm_interface import LocalLLMInterface
 
 
 class ChatbotService:
@@ -13,7 +13,7 @@ class ChatbotService:
 
     def __init__(
         self,
-        retrieval_engine: RetrievalEngine,
+        retrieval_engine: FAISSIndexer,
         llm_interface: LocalLLMInterface,
         context_builder: Optional[ContextBuilder] = None,
     ):
@@ -49,7 +49,7 @@ class ChatbotService:
         """
         try:
             # --- Step 1: Retrieve ---
-            retrieved_chunks = self.retrieval_engine.get_relevant_chunks(query, top_k=5)
+            retrieved_chunks = self.retrieval_engine.search(query, top_k=5)
             if not retrieved_chunks:
                 return {
                     "reply": "No relevant information found in the knowledge base.",
@@ -74,7 +74,7 @@ class ChatbotService:
 
             return {
                 "reply": bot_reply,
-                "sources": prompt_data["sources"],
+                "sources": retrieved_chunks,  
                 "model": llm_output["model"],
                 "backend": llm_output["backend"],
             }

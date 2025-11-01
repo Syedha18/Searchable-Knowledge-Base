@@ -21,26 +21,29 @@ class PDFExtractor:
             "recruitment", "confidentiality", "harassment"
         ]
 
+    # src/utils/pdf_extractor.py
+    # ... (all your imports and other methods are unchanged) ...
+
     def extract(self, pdf_path: str) -> Tuple[List[Dict], List[Dict]]:
         path = Path(pdf_path)
         semantic_chunks, positional_chunks = [], []
-    
+
         if not path.exists():
             print(f"[ERROR] File not found: {pdf_path}")
             return semantic_chunks, positional_chunks
-    
+
         doc = fitz.open(pdf_path)
-    
+
         current_heading = "Untitled"
         buffer_lines = []
-    
+
         for page_num, page in enumerate(doc, start=1):
             blocks = page.get_text("dict")["blocks"]
             if not blocks:  # scanned PDF
                 blocks = self._ocr_page(page)
-    
+
             avg_fontsize = self._compute_avg_fontsize(blocks)
-    
+
             for block in blocks:
                 if "lines" in block:  # Digital PDF
                     for line in block["lines"]:
@@ -48,19 +51,21 @@ class PDFExtractor:
                             text = span.get("text", "").strip()
                             y0 = span.get("bbox", [0, 0, 0, 0])[1]
                             y1 = span.get("bbox", [0, 0, 0, 0])[3]
-    
+
                             if not text:
                                 continue
-    
+
                             if self._is_heading(text, span, avg_fontsize):
                                 if buffer_lines:
                                     semantic_chunks.append({
                                         "heading": current_heading,
-                                        "text": " ".join([l["text"] for l in buffer_lines]).strip()
+                                        "text": " ".join([l["text"] for l in buffer_lines]).strip(),
+                                        # --- 1. THE UPGRADE ---
+                                        "page_number": buffer_lines[0]["page"]
                                     })
                                     buffer_lines.clear()
                                 current_heading = text
-    
+
                             buffer_lines.append({
                                 "text": text,
                                 "page": page_num,
@@ -73,7 +78,7 @@ class PDFExtractor:
                                 "y1": y1,
                                 "text": text
                             })
-    
+
                 else:  # OCR lines
                     for line in block.get("lines", []):
                         text = line.get("text", "").strip()
@@ -81,16 +86,18 @@ class PDFExtractor:
                         y1 = line.get("y1", y0 + 10)
                         if not text:
                             continue
-    
+
                         if self._is_heading(text, line, avg_fontsize):
                             if buffer_lines:
                                 semantic_chunks.append({
                                     "heading": current_heading,
-                                    "text": " ".join([l["text"] for l in buffer_lines]).strip()
+                                    "text": " ".join([l["text"] for l in buffer_lines]).strip(),
+                                    # --- 2. THE UPGRADE ---
+                                    "page_number": buffer_lines[0]["page"]
                                 })
                                 buffer_lines.clear()
                             current_heading = text
-    
+
                         buffer_lines.append({
                             "text": text,
                             "page": page_num,
@@ -103,26 +110,23 @@ class PDFExtractor:
                             "y1": y1,
                             "text": text
                         })
-    
+
         # Add final buffer
         if buffer_lines:
             semantic_chunks.append({
                 "heading": current_heading,
-                "text": " ".join([l["text"] for l in buffer_lines]).strip()
+                "text": " ".join([l["text"] for l in buffer_lines]).strip(),
+                # --- 3. THE UPGRADE ---
+                "page_number": buffer_lines[0]["page"]
             })
-    
-        # Filter empty positional lines
         positional_chunks = [line for line in positional_chunks if line["text"].strip()]
-    
-        # Merge Untitled chunk if it's the first and mostly empty
         if semantic_chunks and semantic_chunks[0]["heading"] == "Untitled":
-            first_chunk_text = semantic_chunks[0]["text"].strip()
-            if len(first_chunk_text.split()) < 5 and len(semantic_chunks) > 1:
-                semantic_chunks[1]["text"] = first_chunk_text + " " + semantic_chunks[1]["text"]
-                semantic_chunks.pop(0)
-    
-        print(f"[INFO] Extracted {len(semantic_chunks)} semantic sections and {len(positional_chunks)} lines")
+            # ... (your logic) ...
+
+            print(f"[INFO] Extracted {len(semantic_chunks)} semantic sections and {len(positional_chunks)} lines")
         return semantic_chunks, positional_chunks
+
+    
 
 
     def _compute_avg_fontsize(self, blocks):
