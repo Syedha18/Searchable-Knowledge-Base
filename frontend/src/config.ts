@@ -1,2 +1,6 @@
-export const API_BASE_URL = "http://127.0.0.1:8000/api";
+// src/config.ts
 
+/**
+ * The base URL for the Rouge Coders SKB API.
+ */
+export const API_BASE_URL = "http://localhost:8000";
