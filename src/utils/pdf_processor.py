@@ -6,7 +6,6 @@ import fitz  # PyMuPDF
 import pdfplumber
 from PIL import Image
 import io
-import os
 from pathlib import Path
 
 
@@ -23,50 +22,55 @@ class PDFProcessor:
         # Create output directories
         for dir_path in [self.images_dir, self.tables_dir, self.charts_dir]:
             dir_path.mkdir(parents=True, exist_ok=True)
-    
-    def extract_images(self):
-        """Extract all images from PDF using PyMuPDF"""
+
+    def extract_images(self, min_width=100, min_height=100, min_bytes=2048):
+        """Extract images from PDF, skipping tiny logos/signatures"""
         extracted_images = []
-        
+    
         try:
-            # Open PDF with PyMuPDF
             pdf_document = fitz.open(self.pdf_path)
-            
+    
             for page_num in range(len(pdf_document)):
                 page = pdf_document[page_num]
-                
-                # Get list of images on the page
                 image_list = page.get_images(full=True)
-                
+    
                 for img_index, img_info in enumerate(image_list):
-                    xref = img_info
-                    
-                    # Extract image
+                    xref = img_info[0]
                     base_image = pdf_document.extract_image(xref)
                     image_bytes = base_image["image"]
                     image_ext = base_image["ext"]
+                    width = int(base_image.get("width", 0))
+                    height = int(base_image.get("height", 0))
                     
-                    # Save image
+                    # --- Filters ---
+                    if width < min_width or height < min_height:
+                        continue  
+                    if len(image_bytes) < min_bytes:
+                        continue
+    
+                    # Save the image
                     image_filename = f"page{page_num + 1}_img{img_index + 1}.{image_ext}"
                     image_path = self.images_dir / image_filename
-                    
-                    with open(image_path, "wb") as img_file:
-                        img_file.write(image_bytes)
-                    
+                    with open(image_path, "wb") as f:
+                        f.write(image_bytes)
+    
                     extracted_images.append({
                         "filename": image_filename,
                         "path": str(image_path),
                         "page": page_num + 1,
-                        "format": image_ext
+                        "format": image_ext,
+                        "width": width,
+                        "height": height
                     })
-            
+    
             pdf_document.close()
             return extracted_images
-            
+    
         except Exception as e:
             print(f"Error extracting images: {e}")
             return []
-    
+
+
     def extract_tables(self):
         """Extract tables from PDF using pdfplumber"""
         extracted_tables = []
@@ -103,49 +107,6 @@ class PDFProcessor:
             print(f"Error extracting tables: {e}")
             return []
     
-    def extract_charts_and_graphs(self):
-        """
-        Extract charts and graphs from PDF
-        Uses image extraction and filters for chart-like content
-        """
-        extracted_charts = []
-        
-        try:
-            # Open PDF with PyMuPDF
-            pdf_document = fitz.open(self.pdf_path)
-            
-            for page_num in range(len(pdf_document)):
-                page = pdf_document[page_num]
-                
-                # Get page as image for better chart detection
-                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for quality
-                
-                # Convert to PIL Image
-                img_data = pix.tobytes("png")
-                img = Image.open(io.BytesIO(img_data))
-                
-                # Check if page contains visual elements (simple heuristic)
-                # In a real scenario, you might use ML models to detect charts
-                if self._contains_visual_elements(page):
-                    chart_filename = f"page{page_num + 1}_chart.png"
-                    chart_path = self.charts_dir / chart_filename
-                    
-                    img.save(chart_path, "PNG")
-                    
-                    extracted_charts.append({
-                        "filename": chart_filename,
-                        "path": str(chart_path),
-                        "page": page_num + 1,
-                        "type": "visual_content"
-                    })
-            
-            pdf_document.close()
-            return extracted_charts
-            
-        except Exception as e:
-            print(f"Error extracting charts: {e}")
-            return []
-    
     def _contains_visual_elements(self, page):
         """
         Simple heuristic to check if page contains charts/graphs
@@ -163,6 +124,5 @@ class PDFProcessor:
         results = {
             "images": self.extract_images(),
             "tables": self.extract_tables(),
-            "charts": self.extract_charts_and_graphs()
         }
         return results

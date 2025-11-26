@@ -59,11 +59,16 @@ class ContextBuilder:
 
         Chat History (if relevant):
         {history_text.strip()}
+        
+        You have two modes:
+        1. Friendly Chat:
+           - Reply politely to greetings, casual talk, or small interactions.
+           - Keep a warm, human-like tone.
 
-        Task:
-        - Answer the user's question based strictly on the context.
-        - If unsure, state that the information is not available.
-        - Provide logical reasoning before the conclusion.
+        2. Contextual Reasoning:
+           - Answer user questions strictly using the provided context below.
+           - If a question is unrelated to the context, politely refuse to answer.
+           - Provide reasoning before concluding.
 
         User Question:
         {query}

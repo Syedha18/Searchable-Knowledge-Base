@@ -6,6 +6,7 @@ from sentence_transformers import SentenceTransformer
 import os
 import json  # <-- 1. Make sure json is imported
 from pathlib import Path  # <-- 2. Make sure pathlib is imported
+from src.utils.text_cleaner import clean_text_start
 
 class FAISSIndexer:
     """
@@ -86,7 +87,7 @@ class FAISSIndexer:
     # src/index/faiss_indexer.py
     # ... (all other code is the same) ...
 
-    def search(self, query: str, top_k: int = 5) -> List[Dict]:
+    def search(self, query: str, top_k: int = 10) -> List[Dict]:
         """
         Embeds a query string and returns top_k results.
         """
@@ -102,14 +103,15 @@ class FAISSIndexer:
                 continue
             if idx < len(self.metadata):
 
-                # --- THIS IS THE UPGRADE ---
                 # Get the full chunk data from our metadata store
                 chunk_data = self.metadata[idx]
 
-                # Build the full result object for the frontend
+                heading = clean_text_start(chunk_data.get("heading", "No Heading"))
+                text = clean_text_start(chunk_data.get("text", ""))
+
                 results.append({
-                    "heading": chunk_data.get("heading", "No Heading"),
-                    "text": chunk_data.get("text", ""),
+                    "heading": heading,
+                    "text": text,
                     "distance": float(dist),
 
                     # This maps your extractor's keys to the frontend's keys

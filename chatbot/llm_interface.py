@@ -87,39 +87,23 @@ class LocalLLMInterface:
 
         data = response.json()
         return data["choices"][0]["text"].strip()
-
-    # ------------------------------------------
-    # Unified Entry Point
-    # ------------------------------------------
-# ------------------------------------------
-    # Unified Entry Point
-    # ------------------------------------------
-    def generate_response(self, prompt: str) -> Dict[str, Any]:
-        """
-        Generate a reasoning response using the configured backend.
-        This function WAITS for the full response and returns it.
-        """
-        text_chunks = []
-        # We loop over the generator and collect all the pieces
-        for chunk in self.stream_response(prompt): # <-- We use our NEW function
-            text_chunks.append(chunk)
         
-        full_text = "".join(text_chunks)
-
-        return {
-            "model": self.model,
-            "backend": self.backend,
-            "response": full_text, # <-- Return the complete, joined text
-        }
-    
-    # --- ADD THIS NEW FUNCTION ---
+    # --- REWRITTEN FUNCTION ---
     def stream_response(self, prompt: str) -> Generator[str, None, None]:
         """
         Generate a response and stream the text chunks as they arrive.
+        
+        CRUCIAL FIX: Replaced 'yield from' with a 'for' loop to prevent 
+        intermediate buffering and ensure immediate control flow back to the caller.
         """
         if self.backend == "ollama":
-            yield from self._query_ollama(prompt)
+            for chunk in self._query_ollama(prompt):
+                yield chunk
+    
         elif self.backend == "vllm":
-            yield from self._query_vllm(prompt)
+            # Apply the same fix for other backends if they are streaming generators
+            for chunk in self._query_vllm(prompt):
+                yield chunk
+    
         else:
-            raise NotImplementedError(f"Backend '{self.backend}' not supported")
+            raise NotImplementedError(f"Backend '{self.backend}' not supported")

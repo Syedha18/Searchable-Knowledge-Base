@@ -25,6 +25,8 @@ STORAGE_DIR = ROOT_DIR / "storage"
 INDEX_FILE = STORAGE_DIR / "skb.index"
 LOG_FILE = STORAGE_DIR / "skb_api.log"
 
+VISUAL_DATA_DIR = Path("/mnt/v_drive/Codes/SKB/storage/visual_data")
+
 # --- 3. Embedding Model Configuration ---
 # The model used to create vectors
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
@@ -61,3 +63,7 @@ LOG_LEVEL = "INFO" # e.g., "DEBUG", "INFO", "WARNING"
 # --- Create directories if they don't exist ---
 STORAGE_DIR.mkdir(exist_ok=True)
 PDF_FOLDER.mkdir(exist_ok=True)
+
+DOCUMENT_PUBLIC_PATH = "/pdfs"  
+# The base URL the frontend uses to serve PDFs.
+DOCUMENT_SERVER_URL = f"http://localhost:{API_PORT}{DOCUMENT_PUBLIC_PATH}/"

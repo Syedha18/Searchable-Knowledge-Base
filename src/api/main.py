@@ -1,4 +1,3 @@
-# chatbot_api.py
 import os
 import time
 from fastapi import (
@@ -9,97 +8,143 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 from contextlib import asynccontextmanager
-import shutil 
+import shutil
+import json
 
+from src.utils.pdf_processor import PDFProcessor
+from src.utils.image_captioner import ImageCaptioner
 from chatbot.chatbot_service import ChatbotService
 from src.index.faiss_indexer import FAISSIndexer
 from chatbot.llm_interface import LocalLLMInterface
 from src.utils.pdf_extractor import PDFExtractor
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import StreamingResponse
 from src.config.settings import (
-    PDF_FOLDER, INDEX_FILE, EMBEDDING_MODEL, FAISS_CONFIG
+    PDF_FOLDER, INDEX_FILE, EMBEDDING_MODEL, FAISS_CONFIG, VISUAL_DATA_DIR
 )
+from src.utils.embedder import set_global_embedder, get_embedding, cosine_similarity
 
-def _build_index_pipeline() -> (FAISSIndexer, int):
+def build_text_index_pipeline() -> (FAISSIndexer, int):
     """
-    Runs the full E-T-L pipeline: Extract, Transform (embed), Load (into index).
-    Returns a newly built and saved indexer.
+    Extracts text from PDFs, embeds it, and loads it into the FAISS index.
+    Returns a newly built and saved indexer and chunk count.
     """
-    print("--- Rouge Coder: Index Rebuild Initiated ---")
+    print("--- Text Index Rebuild Initiated ---")
     start_time = time.time()
 
-    # 1. Initialize a NEW, blank indexer
-    # We use the config from our settings file
     indexer = FAISSIndexer(
         embedding_model_name=EMBEDDING_MODEL,
         index_config=FAISS_CONFIG
     )
 
-    # 2. Extract
-    print(f"Extracting data from {PDF_FOLDER}...")
     if not os.path.exists(PDF_FOLDER):
         os.makedirs(PDF_FOLDER)
         print(f"Created PDF folder: {PDF_FOLDER}")
-        return indexer, 0 # Return empty index
+        return indexer, 0
 
     extractor = PDFExtractor()
     semantic_chunks, _ = extractor.extract_from_folder(PDF_FOLDER)
     print(f"Found {len(semantic_chunks)} semantic chunks.")
 
-    # 3. Add and Train
     if semantic_chunks:
         indexer.add_chunks(semantic_chunks)
-
-        # 4. Save
         print(f"Saving index to {INDEX_FILE}...")
         os.makedirs(os.path.dirname(INDEX_FILE), exist_ok=True)
         indexer.save(INDEX_FILE)
 
     total_time = time.time() - start_time
-    print(f"--- Index build complete in {total_time:.2f}s ---")
+    print(f"--- Text index build complete in {total_time:.2f}s ---")
     return indexer, len(semantic_chunks)
 
-# --- 2. Lifespan Manager (Loads models on startup) ---
+def build_visual_index_pipeline():
+    """
+    Processes PDFs for images and tables, generates captions, and saves visual JSONs.
+    """
+    print("--- Visual Data Processing Initiated ---")
+    start_time = time.time()
+    captioner = ImageCaptioner()
 
+    if not os.path.exists(PDF_FOLDER):
+        print("No PDFs found for visual processing.")
+        return
+
+    for pdf_file in os.listdir(PDF_FOLDER):
+        if not pdf_file.lower().endswith(".pdf"):
+            continue
+
+        pdf_path = PDF_FOLDER / pdf_file
+        pdf_output_dir = VISUAL_DATA_DIR / pdf_file.replace(".pdf", "")
+        processor = PDFProcessor(str(pdf_path), output_dir=str(pdf_output_dir))
+        results = processor.process_all()
+
+        # Generate captions for extracted images
+        image_paths = [img["path"] for img in results.get("images", [])]
+        if image_paths:
+            captions = captioner.generate_captions_batch(image_paths)
+            for i, img_data in enumerate(results["images"]):
+                img_data["caption"] = captions[i]["caption"]
+
+        # Save results as JSON
+        results_path = VISUAL_DATA_DIR / f"{pdf_file}_results.json"
+        os.makedirs(VISUAL_DATA_DIR, exist_ok=True)
+        with open(results_path, "w") as f:
+            json.dump(results, f, indent=2)
+
+        print(f"✅ Visual data for {pdf_file} saved at {results_path}")
+
+    total_time = time.time() - start_time
+    print(f"--- Visual data processing complete in {total_time:.2f}s ---")
+
+# --- 2. Lifespan Manager (Loads models on startup) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # This code runs ONCE, before the server starts
     print("--- Rouge Coders: API Boot Phase ---")
 
-    # 1. Build or Load the Index
     if os.path.exists(INDEX_FILE):
         try:
             print(f"Loading existing index from {INDEX_FILE}...")
-            indexer = FAISSIndexer(embedding_model_name=EMBEDDING_MODEL)
+            indexer = FAISSIndexer(embedding_model_name=EMBEDDING_MODEL, index_config=FAISS_CONFIG)
             indexer.load(INDEX_FILE)
-            print("Index loaded successfully.")
+            print("Text index loaded successfully.")
         except Exception as e:
-            print(f"Error loading index: {e}. Re-building...")
-            indexer, _ = _build_index_pipeline()
+            print(f"Error loading index: {e}. Rebuilding text index...")
+            indexer, _ = build_text_index_pipeline()
     else:
-        print("No index file found. Building new index...")
-        indexer, _ = _build_index_pipeline()
+        print("No text index found. Building new text index...")
+        indexer, _ = build_text_index_pipeline()
 
-    print("--- Index is Ready! ---")
+    print("--- Text Index Ready ---")
 
-    # 2. Initialize LLM
-    llm = LocalLLMInterface() # Assumes default connection
+# --- 2. Build Visual Data JSONs (if missing) ---
+    print("--- Checking visual data... ---")
+    if not VISUAL_DATA_DIR.exists() or not any(VISUAL_DATA_DIR.iterdir()):
+        print("--- Visual data missing. Processing all PDFs... ---")
+        build_visual_index_pipeline()  # handles PDFs internally
+    else:
+        print("--- Visual data already exists. Skipping visual processing. ---")
 
-    # 3. Build the Chatbot Service
+
+    # --- 3. Attach Global Embedder ---
+    set_global_embedder(indexer.model)  # This hooks your embedder.py
+
+    # --- 4. Initialize LLM ---
+    llm = LocalLLMInterface()
+
+    # --- 5. Build Chatbot Service ---
     service = ChatbotService(
         retrieval_engine=indexer,
         llm_interface=llm
     )
 
-    # 4. Store *both* components in the app's state
+    # --- 6. Store in app.state ---
     app.state.indexer = indexer
     app.state.chatbot_service = service
 
-    print("--- SKB API Service is online. 'If we gonna die we die hard.' --- 🚀")
+    print("--- SKB API Service is online. 🚀 ---")
 
     yield
 
-    # Code after 'yield' runs on shutdown
+    # --- Shutdown ---
     print("--- SKB API Service is shutting down. ---")
 
 # --- 3. Create the FastAPI App ---
@@ -122,13 +167,15 @@ app.add_middleware(
 )
 
 app.mount("/pdfs", StaticFiles(directory=str(PDF_FOLDER)), name="pdfs")
+app.mount("/visuals", StaticFiles(directory=str(VISUAL_DATA_DIR)), name="visuals")
+
 
 # --- 4. Pydantic Models (API Request/Response schemas) ---
 
 # FOR /search (Raw SKB Search)
 class SearchRequest(BaseModel):
     query: str
-    top_k: int = 5
+    top_k: int = 10
 
 # --- THIS IS THE FIX ---
 class SearchResult(BaseModel):
@@ -136,12 +183,23 @@ class SearchResult(BaseModel):
     text: str
     distance: float
     file_name: str     
-    page_number: int   
+    page_number: int
+
+class VisualItem(BaseModel):
+    filename: str
+    page: int
+    type: str  # "image" or "table"
+    caption: str | None = None
+    rows: int | None = None
+    columns: int | None = None
+    url: str
+    score: float | None = None
+
 
 class SearchResponse(BaseModel):
-    results: List[SearchResult]
+    text_results: List[SearchResult]
+    visual_results: List[VisualItem]
 
-# FOR /query (Chatbot Search)
 # FOR /query (Chatbot Search)
 class ChatRequest(BaseModel):
     query: str
@@ -179,52 +237,105 @@ def get_root():
 # ---
 # Endpoint 1: The Core SKB Function
 # ---
+
 @app.post("/search", response_model=SearchResponse)
-def post_raw_search(
+def post_unified_search(
         request: SearchRequest,
         indexer: FAISSIndexer = Depends(get_indexer)
 ):
     """
-    Performs a raw vector search directly against the knowledge base
-    and returns the source chunks without LLM-based reasoning.
+    Performs a unified vector search across both
+    text chunks (FAISS) and visual data (captions/tables).
     """
     try:
-        results = indexer.search(query=request.query, top_k=request.top_k)
-        print(results)
-        return SearchResponse(results=results)
+        # --- TEXT SEARCH ---
+        text_results = indexer.search(query=request.query, top_k=request.top_k)
+
+        text_results = [SearchResult(**r) for r in text_results] #FLAG-----------------------------
+
+        # --- VISUAL SEARCH ---
+        query_embedding = get_embedding(request.query)
+        related_pdfs = {res.file_name.replace(".pdf", "") for res in text_results}
+        
+        visuals = []
+
+        for pdf_name in related_pdfs:
+            result_json_path = os.path.join(VISUAL_DATA_DIR, f"{pdf_name}.pdf_results.json")
+
+            with open(result_json_path, "r") as f:
+                visual_data = json.load(f)
+
+            # Search through image captions
+            for img in visual_data.get("images", []):
+                caption = img.get("caption", "")
+                if caption:
+                    score = cosine_similarity(query_embedding, get_embedding(caption))
+                    if score > 0.10:
+                        visuals.append({
+                            "filename": img["filename"],
+                            "page": img["page"],
+                            "type": "image",
+                            "caption": caption,
+                            "url": f"/visuals/{pdf_name}/images/{img['filename']}",
+                            "score": score,
+                        })
+
+            # Search through tables
+            for tbl in visual_data.get("tables", []):
+                desc = f"Table with {tbl['rows']} rows and {tbl['columns']} columns."
+                score = cosine_similarity(query_embedding, get_embedding(desc))
+                if score > 0.99:
+                    visuals.append({
+                        "filename": tbl["filename"],
+                        "page": tbl["page"],
+                        "type": "table",
+                        "rows": tbl.get("rows"),
+                        "columns": tbl.get("columns"),
+                        "url": f"/visuals/{pdf_name}/tables/{tbl['filename']}",
+                        "score": score,
+                    })
+
+        visuals.sort(key=lambda v: v["score"], reverse=True)
+
+        return SearchResponse(
+            text_results=text_results,
+            visual_results=visuals[:request.top_k]
+        )
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Unified search failed: {str(e)}")
 
 # ---
 # Endpoint 2: The Supplementary Chatbot
 # ---
-@app.post("/query", response_model=ChatResponse)
-def post_chatbot_query(
+@app.post("/stream_query")
+def stream_chatbot_query(
         request: ChatRequest,
         service: ChatbotService = Depends(get_chatbot_service)
 ):
     """
-    Processes a query using the full RAG pipeline (Retrieve, Rank, Reason)
-    to generate a natural language answer.
+    Processes a query and streams the response chunks back to the client.
     """
     try:
-        response_data = service.handle_query(
-            query=request.query,
-            session_id=request.session_id
-        )
+        def stream_generator():
+            # 🔑 Call the new streaming function
+            for response_data in service.handle_query_stream(
+                    query=request.query,
+                    session_id=request.session_id
+            ):
+                # FastAPI requires bytes/strings for streaming. We use JSONL format.
+                yield json.dumps(response_data) + "\n"
 
-        if "Error" in response_data.get("reply", ""):
-            raise HTTPException(status_code=500, detail=response_data["reply"])
-
-        return ChatResponse(
-            reply=response_data.get("reply", "No reply generated."),
-            sources=response_data.get("sources", []),
-            model=response_data.get("model", "unknown"),
-            backend=response_data.get("backend", "unknown")
+        # 🔑 The crucial line: use StreamingResponse with the generator
+        return StreamingResponse(
+            stream_generator(),
+            media_type="application/json"
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+        # Note: Exceptions in the generator won't be caught here easily, 
+        # so we rely on the error handling inside handle_query_stream.
+        raise HTTPException(status_code=500, detail=f"Failed to start stream: {str(e)}")
 # ---
 # Endpoint 3 & 4: Management API
 # ---
@@ -254,15 +365,29 @@ async def upload_document(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
-# We use BackgroundTasks to avoid a 5-minute timeout on the request
-def _run_rebuild(app_state: dict):
-    """Helper function to run the rebuild and update the app state."""
-    new_indexer, chunks_indexed = _build_index_pipeline()
+def _run_rebuild(app_state: dict, rebuild_visuals: bool = False):
+    """
+    Helper function to rebuild the text index and optionally visual data,
+    then update the app state atomically.
+    """
+    print("--- Rebuild task started ---")
 
-    # Atomically replace the old indexer and service
+    # 1️⃣ Rebuild text index
+    new_indexer, chunks_indexed = build_text_index_pipeline()
+
+    # 2️⃣ Rebuild visual data only if requested
+    if rebuild_visuals:
+        print("--- Rebuilding missing visual data ---")
+        build_visual_index_pipeline()
+    else:
+        print("--- Skipping visual data rebuild ---")
+
+    # 3️⃣ Atomically replace the old indexer in app state
     app_state["indexer"] = new_indexer
     app_state["chatbot_service"].retrieval_engine = new_indexer
-    print(f"--- Index successfully replaced in app state. {chunks_indexed} chunks active. ---")
+
+    print(f"--- Rebuild complete: {chunks_indexed} text chunks indexed ---")
+
 
 @app.post("/rebuild-index", response_model=RebuildResponse)
 def post_rebuild_index(
