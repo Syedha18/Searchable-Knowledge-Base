@@ -33,7 +33,7 @@ class ImageCaptioner:
         
         Args:
             image_path: Path to the image file
-            max_length: Maximum length of generated caption (increased to 100)
+            max_length: Maximum length of generated caption
             num_beams: Number of beams for beam search (higher = better quality)
             
         Returns:

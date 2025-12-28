@@ -1,11 +1,11 @@
-# src/index/faiss_indexer.py
+
 import faiss
 import numpy as np
 from typing import List, Dict, Optional
 from sentence_transformers import SentenceTransformer
 import os
-import json  # <-- 1. Make sure json is imported
-from pathlib import Path  # <-- 2. Make sure pathlib is imported
+import json  
+from pathlib import Path  
 from src.utils.text_cleaner import clean_text_start
 
 class FAISSIndexer:
@@ -84,8 +84,7 @@ class FAISSIndexer:
         self.index.add(embeddings)
         self.metadata.extend(chunks)
 
-    # src/index/faiss_indexer.py
-    # ... (all other code is the same) ...
+
 
     def search(self, query: str, top_k: int = 10) -> List[Dict]:
         """
@@ -120,8 +119,7 @@ class FAISSIndexer:
                 })
         return results
 
-    # --- 3. THE FIX IS HERE ---
-    def save(self, file_path: Path): # Change type hint to Path
+    def save(self, file_path: Path):
         """Saves the index and metadata."""
         # Cast the Path object to a string for the C++ bindings
         index_file_str = str(file_path)
@@ -129,7 +127,7 @@ class FAISSIndexer:
         meta_file_path = file_path.with_suffix(".meta.json")
 
         print(f"Saving FAISS index to {index_file_str}")
-        faiss.write_index(self.index, index_file_str) # Use the string
+        faiss.write_index(self.index, index_file_str)
 
         print(f"Saving metadata to {meta_file_path}")
         with open(meta_file_path, "w") as f:
@@ -140,8 +138,7 @@ class FAISSIndexer:
                 "is_trained": self.is_trained,
             }, f)
 
-    # --- 4. AND HERE ---
-    def load(self, file_path: Path): # Change type hint to Path
+    def load(self, file_path: Path):
         """Loads an index and its metadata."""
         # Cast the Path object to a string for the C++ bindings
         index_file_str = str(file_path)
@@ -152,7 +149,7 @@ class FAISSIndexer:
             raise FileNotFoundError(f"Cannot find index files: {index_file_str} or {meta_file_path}")
 
         print(f"Loading FAISS index from {index_file_str}")
-        self.index = faiss.read_index(index_file_str) # Use the string
+        self.index = faiss.read_index(index_file_str)
 
         print(f"Loading metadata from {meta_file_path}")
         with open(meta_file_path, "r") as f:

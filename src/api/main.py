@@ -90,15 +90,35 @@ def build_visual_index_pipeline():
         with open(results_path, "w") as f:
             json.dump(results, f, indent=2)
 
-        print(f"✅ Visual data for {pdf_file} saved at {results_path}")
+        print(f"Visual data for {pdf_file} saved at {results_path}")
 
     total_time = time.time() - start_time
     print(f"--- Visual data processing complete in {total_time:.2f}s ---")
+    
+def dedup_text_results(results):
+    """
+    Deduplicate FAISS text results by (file_name, page_number, heading).
+    Keeps the chunk with the lowest distance (best match).
+    """
+    deduped = {}
 
-# --- 2. Lifespan Manager (Loads models on startup) ---
+    for r in results:
+        key = (
+            r.get("file_name"),
+            r.get("page_number"),
+            r.get("heading"),
+        )
+
+        # Keep the best (lowest distance) chunk per section
+        if key not in deduped or r["distance"] < deduped[key]["distance"]:
+            deduped[key] = r
+
+    return list(deduped.values())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("--- Rouge Coders: API Boot Phase ---")
+    print("--- API Boot Phase ---")
 
     if os.path.exists(INDEX_FILE):
         try:
@@ -115,41 +135,37 @@ async def lifespan(app: FastAPI):
 
     print("--- Text Index Ready ---")
 
-# --- 2. Build Visual Data JSONs (if missing) ---
     print("--- Checking visual data... ---")
-    if not VISUAL_DATA_DIR.exists() or not any(VISUAL_DATA_DIR.iterdir()):
-        print("--- Visual data missing. Processing all PDFs... ---")
-        build_visual_index_pipeline()  # handles PDFs internally
-    else:
-        print("--- Visual data already exists. Skipping visual processing. ---")
+    try:
+        if not VISUAL_DATA_DIR.exists() or not any(VISUAL_DATA_DIR.iterdir()):
+            print("--- Visual data missing. Processing all PDFs... ---")
+            build_visual_index_pipeline()  # handles PDFs internally
+        else:
+            print("--- Visual data already exists. Skipping visual processing. ---")
+    except Exception as e:
+        print(f"[WARN] Visual index build failed: {e}. Starting in text-only mode.")
 
 
-    # --- 3. Attach Global Embedder ---
-    set_global_embedder(indexer.model)  # This hooks your embedder.py
+    set_global_embedder(indexer.model)
 
-    # --- 4. Initialize LLM ---
     llm = LocalLLMInterface()
 
-    # --- 5. Build Chatbot Service ---
     service = ChatbotService(
         retrieval_engine=indexer,
         llm_interface=llm
     )
 
-    # --- 6. Store in app.state ---
     app.state.indexer = indexer
     app.state.chatbot_service = service
 
-    print("--- SKB API Service is online. 🚀 ---")
+    print("--- SKB API Service is online. ---")
 
     yield
 
-    # --- Shutdown ---
     print("--- SKB API Service is shutting down. ---")
 
-# --- 3. Create the FastAPI App ---
 app = FastAPI(
-    title="Rouge Coders - Searchable Knowledge Base (SKB) API",
+    title="Searchable Knowledge Base (SKB) API",
     lifespan=lifespan
 )
 
@@ -162,22 +178,18 @@ app.add_middleware(
         "http://localhost",
     ],
     allow_credentials=True,
-    allow_methods=["*"], # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"], # Allow all headers
+    allow_methods=["*"], 
+    allow_headers=["*"], 
 )
 
 app.mount("/pdfs", StaticFiles(directory=str(PDF_FOLDER)), name="pdfs")
 app.mount("/visuals", StaticFiles(directory=str(VISUAL_DATA_DIR)), name="visuals")
 
 
-# --- 4. Pydantic Models (API Request/Response schemas) ---
-
-# FOR /search (Raw SKB Search)
 class SearchRequest(BaseModel):
     query: str
     top_k: int = 10
-
-# --- THIS IS THE FIX ---
+    
 class SearchResult(BaseModel):
     heading: str
     text: str
@@ -207,7 +219,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
-    sources: List[SearchResult] # <--- THIS IS THE FIX
+    sources: List[SearchResult]
     model: str = "unknown"
     backend: str = "unknown"
 
@@ -220,7 +232,6 @@ class RebuildResponse(BaseModel):
     chunks_indexed: int
     message: str
 
-# --- 5. Dependencies (How endpoints get the loaded models) ---
 
 def get_indexer(request: Request) -> FAISSIndexer:
     return request.app.state.indexer
@@ -228,15 +239,11 @@ def get_indexer(request: Request) -> FAISSIndexer:
 def get_chatbot_service(request: Request) -> ChatbotService:
     return request.app.state.chatbot_service
 
-# --- 6. API Endpoints ---
 
 @app.get("/")
 def get_root():
-    return {"message": "Rouge Coders SKB API is online."}
+    return {"message": "SKB API is online."}
 
-# ---
-# Endpoint 1: The Core SKB Function
-# ---
 
 @app.post("/search", response_model=SearchResponse)
 def post_unified_search(
@@ -248,10 +255,14 @@ def post_unified_search(
     text chunks (FAISS) and visual data (captions/tables).
     """
     try:
-        # --- TEXT SEARCH ---
+        if not request.query.strip():
+            return SearchResponse(text_results=[], visual_results=[])
+            
         text_results = indexer.search(query=request.query, top_k=request.top_k)
-
-        text_results = [SearchResult(**r) for r in text_results] #FLAG-----------------------------
+        
+        text_results = dedup_text_results(text_results)
+        
+        text_results = [SearchResult(**r) for r in text_results]
 
         # --- VISUAL SEARCH ---
         query_embedding = get_embedding(request.query)
@@ -262,6 +273,9 @@ def post_unified_search(
         for pdf_name in related_pdfs:
             result_json_path = os.path.join(VISUAL_DATA_DIR, f"{pdf_name}.pdf_results.json")
 
+            if not os.path.exists(result_json_path):
+                continue
+            
             with open(result_json_path, "r") as f:
                 visual_data = json.load(f)
 
@@ -305,9 +319,7 @@ def post_unified_search(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unified search failed: {str(e)}")
 
-# ---
-# Endpoint 2: The Supplementary Chatbot
-# ---
+
 @app.post("/stream_query")
 def stream_chatbot_query(
         request: ChatRequest,
@@ -318,7 +330,7 @@ def stream_chatbot_query(
     """
     try:
         def stream_generator():
-            # 🔑 Call the new streaming function
+
             for response_data in service.handle_query_stream(
                     query=request.query,
                     session_id=request.session_id
@@ -326,19 +338,15 @@ def stream_chatbot_query(
                 # FastAPI requires bytes/strings for streaming. We use JSONL format.
                 yield json.dumps(response_data) + "\n"
 
-        # 🔑 The crucial line: use StreamingResponse with the generator
         return StreamingResponse(
             stream_generator(),
             media_type="application/json"
         )
 
     except Exception as e:
-        # Note: Exceptions in the generator won't be caught here easily, 
-        # so we rely on the error handling inside handle_query_stream.
+
         raise HTTPException(status_code=500, detail=f"Failed to start stream: {str(e)}")
-# ---
-# Endpoint 3 & 4: Management API
-# ---
+
 @app.post("/upload", response_model=UploadResponse)
 async def upload_document(file: UploadFile = File(...)):
     """
@@ -372,17 +380,17 @@ def _run_rebuild(app_state: dict, rebuild_visuals: bool = False):
     """
     print("--- Rebuild task started ---")
 
-    # 1️⃣ Rebuild text index
+    # Rebuild text index
     new_indexer, chunks_indexed = build_text_index_pipeline()
 
-    # 2️⃣ Rebuild visual data only if requested
+    # Rebuild visual data only if requested
     if rebuild_visuals:
         print("--- Rebuilding missing visual data ---")
         build_visual_index_pipeline()
     else:
         print("--- Skipping visual data rebuild ---")
 
-    # 3️⃣ Atomically replace the old indexer in app state
+    # Atomically replace the old indexer in app state
     app_state["indexer"] = new_indexer
     app_state["chatbot_service"].retrieval_engine = new_indexer
 

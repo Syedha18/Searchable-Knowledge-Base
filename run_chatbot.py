@@ -39,7 +39,7 @@ if os.path.exists(INDEX_FILE):
         # Fall through to the 'else' block
 
 if not os.path.exists(INDEX_FILE):
-    print("--- Rouge Coders: Index Build Phase ---")
+    print("--- Index Build Phase ---")
     start_time = time.time()
 
     # 1. Extract
@@ -65,7 +65,7 @@ print("--- Index is Ready! ---")
 
 
 # --- 3. Initialize and Run the Chatbot ---
-print("\n--- Rouge Coders: Chatbot Service Phase ---")
+print("\n--- Chatbot Service Phase ---")
 
 # Initialize other components
 llm = LocalLLMInterface() # Assumes default connection to Ollama

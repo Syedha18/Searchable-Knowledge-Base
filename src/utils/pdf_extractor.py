@@ -21,8 +21,7 @@ class PDFExtractor:
             "recruitment", "confidentiality", "harassment"
         ]
 
-    # src/utils/pdf_extractor.py
-    # ... (all your imports and other methods are unchanged) ...
+
 
     def extract(self, pdf_path: str) -> Tuple[List[Dict], List[Dict]]:
         path = Path(pdf_path)
@@ -60,7 +59,6 @@ class PDFExtractor:
                                     semantic_chunks.append({
                                         "heading": current_heading,
                                         "text": " ".join([l["text"] for l in buffer_lines]).strip(),
-                                        # --- 1. THE UPGRADE ---
                                         "page_number": buffer_lines[0]["page"]
                                     })
                                     buffer_lines.clear()
@@ -92,7 +90,6 @@ class PDFExtractor:
                                 semantic_chunks.append({
                                     "heading": current_heading,
                                     "text": " ".join([l["text"] for l in buffer_lines]).strip(),
-                                    # --- 2. THE UPGRADE ---
                                     "page_number": buffer_lines[0]["page"]
                                 })
                                 buffer_lines.clear()
@@ -116,12 +113,11 @@ class PDFExtractor:
             semantic_chunks.append({
                 "heading": current_heading,
                 "text": " ".join([l["text"] for l in buffer_lines]).strip(),
-                # --- 3. THE UPGRADE ---
                 "page_number": buffer_lines[0]["page"]
             })
         positional_chunks = [line for line in positional_chunks if line["text"].strip()]
         if semantic_chunks and semantic_chunks[0]["heading"] == "Untitled":
-            # ... (your logic) ...
+            # Check if the first chunk is untitled and handle accordingly
 
             print(f"[INFO] Extracted {len(semantic_chunks)} semantic sections and {len(positional_chunks)} lines")
         return semantic_chunks, positional_chunks
