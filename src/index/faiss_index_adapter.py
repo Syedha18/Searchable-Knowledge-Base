@@ -46,10 +46,6 @@ class FAISSIndexAdapter:
         else:
             self._build_index()
 
-
-# ----------------------------------------------------------------------
-    # Index building
-    # ----------------------------------------------------------------------
     def _build_index(self):
         index_type = self.config.get("index_type", "flat").lower()
         nlist = self.config.get("nlist", 100)
@@ -73,9 +69,7 @@ class FAISSIndexAdapter:
             res = faiss.StandardGpuResources()
             self.index = faiss.index_cpu_to_gpu(res, 0, self.index)
 
-    # ----------------------------------------------------------------------
-    # Core operations
-    # ----------------------------------------------------------------------
+
     def add_embeddings(self, embeddings: np.ndarray, metadata: Optional[List[Dict[str, Any]]] = None):
         """
         Add embeddings and associated metadata to the index.
@@ -117,16 +111,13 @@ class FAISSIndexAdapter:
                 })
     
         return results
-
-    # ----------------------------------------------------------------------
-    # Persistence
-    # ----------------------------------------------------------------------
+        
     def save(self, path: str):
         """
         Save the FAISS index to disk.
         """
         faiss.write_index(self.index, path)
-        # Metadata persistence (can later be moved to SQLite)
+
         meta_path = path + ".meta"
         np.save(meta_path, np.array(self.id_to_metadata, dtype=object))
 
@@ -141,9 +132,7 @@ class FAISSIndexAdapter:
         if os.path.exists(meta_path):
             self.id_to_metadata = list(np.load(meta_path, allow_pickle=True))
 
-    # ----------------------------------------------------------------------
-    # Debug / Info
-    # ----------------------------------------------------------------------
+
     def info(self) -> Dict[str, Any]:
         """
         Return basic information about the current index.

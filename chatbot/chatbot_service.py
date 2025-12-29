@@ -1,5 +1,5 @@
 # chatbot/chatbot_service.py
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Generator
 
 from src.index.faiss_indexer import FAISSIndexer  # your FAISS+NoSQL layer
 from chatbot.context_builder import ContextBuilder
@@ -36,26 +36,20 @@ class ChatbotService:
         # Keep last 5 exchanges for brevity
         self.sessions[session_id] = history[-5:]
 
-    # -------------------------------------------------
-    # Core Interaction
-    # -------------------------------------------------
-    def handle_query(self, query: str, session_id: str = "default") -> Dict[str, any]:
-        """
-        Process a user query end-to-end:
-        1. Retrieve relevant chunks
-        2. Build reasoning prompt
-        3. Generate LLM response
-        4. Return response + sources
-        """
+    def handle_query_stream(self, query: str, session_id: str = "default") -> Generator[Dict[str, any], None, None]:
+
         try:
             # --- Step 1: Retrieve ---
             retrieved_chunks = self.retrieval_engine.search(query, top_k=5)
             if not retrieved_chunks:
-                return {
+                # Yield final error/metadata immediately
+                yield {
                     "reply": "No relevant information found in the knowledge base.",
                     "sources": [],
+                    "event": "end",
                 }
-
+                return
+    
             # --- Step 2: Build Context ---
             chat_history = self._get_history(session_id)
             prompt_data = self.context_builder.build_prompt(
@@ -64,23 +58,38 @@ class ChatbotService:
                 chat_history=chat_history,
                 style="reasoning",
             )
-
-            # --- Step 3: Generate Reasoning Response ---
-            llm_output = self.llm_interface.generate_response(prompt_data["prompt"])
-            bot_reply = llm_output["response"]
-
-            # --- Step 4: Update Session ---
-            self._update_history(session_id, query, bot_reply)
-
-            return {
-                "reply": bot_reply,
-                "sources": retrieved_chunks,  
-                "model": llm_output["model"],
-                "backend": llm_output["backend"],
+    
+            # --- Step 3: Yield Initial Metadata (Sources) ---
+            # The frontend needs this info before the stream starts.
+            yield {
+                "sources": retrieved_chunks,
+                "model": self.llm_interface.model,
+                "backend": self.llm_interface.backend,
+                "event": "start",
             }
-
+    
+            # --- Step 4: Generate and Stream Response ---
+            full_reply_text = ""
+    
+            # 🔑 Use the streaming function here!
+            for chunk in self.llm_interface.stream_response(prompt_data["prompt"]):
+                full_reply_text += chunk
+    
+                # Yield the text chunk immediately as a simple dictionary
+                yield {
+                    "reply_chunk": chunk,
+                    "event": "stream",
+                }
+    
+            # --- Step 5: Update Session & Finalize ---
+            self._update_history(session_id, query, full_reply_text)
+    
+            # Yield a final signal to the frontend
+            yield {"event": "end"}
+    
         except Exception as e:
-            return {
-                "reply": f"⚠ Error: {str(e)}",
+            yield {
+                "reply": f"⚠ Error: Internal Server Error: {str(e)}",
                 "sources": [],
+                "event": "error",
             }

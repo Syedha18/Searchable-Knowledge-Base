@@ -11,14 +11,14 @@
         --card: 222 25% 100%;
         --card-foreground: 222 15% 10%;
 
-        --primary: 260 95% 55%;          /* strong purple */
+        --primary: 210 80% 50%;
         --primary-foreground: 0 0% 100%;
 
-        --secondary: 200 80% 50%;        /* techy cyan */
-        --secondary-foreground: 222 20% 10%;
+        --secondary: 210 50% 55%;
+        --secondary-foreground: 0 0% 100%;
 
         --muted: 222 10% 90%;
-        --muted-foreground: 222 10% 30%;
+        --muted-foreground: 222 10% 40%; 
 
         --accent: 345 80% 60%;
         --accent-foreground: 0 0% 100%;
@@ -28,7 +28,10 @@
 
         --border: 220 15% 85%;
         --input: 220 15% 88%;
-        --ring: 260 95% 55%;
+        --ring: 210 80% 50%;
+
+        --tag-background: 260 90% 40%;   /* Darker Purple for better contrast */
+        --tag-foreground: 0 0% 100%;    /* Pure White text */
 
         --gradient-primary: linear-gradient(135deg, hsl(260 95% 55%), hsl(200 85% 50%));
         --gradient-subtle: linear-gradient(180deg, hsl(220 20% 95%), hsl(222 18% 90%));
@@ -45,8 +48,6 @@
         --chart-5: 345 80% 60%;
     }
 
-
-
     .dark {
         --background: 210 15% 8%;       /* very dark slate gray */
         --foreground: 210 10% 95%;      /* off-white text */
@@ -55,23 +56,290 @@
         --card-foreground: 210 10% 95%;
 
         --primary: 210 25% 75%;         /* soft gray-blue for buttons/highlights */
-        --primary-foreground: 0 0% 100%;
+        --primary-foreground: 210 20% 10%;
 
         --secondary: 210 20% 60%;       /* subtle gray accent for secondary elements */
-        --secondary-foreground: 0 0% 95%;
+        --secondary-foreground: 210 20% 10%;
 
         --muted: 210 10% 15%;           /* dark slate for muted content */
         --muted-foreground: 210 10% 55%;
 
         --accent: 340 30% 70%;          /* subtle rose pop for small highlights */
-        --accent-foreground: 0 0% 100%;
+        --accent-foreground: 210 20% 10%;
 
         --destructive: 0 70% 60%;       /* red alerts */
-        --destructive-foreground: 0 0% 100%;
+        --destructive-foreground: 210 20% 10%;
 
         --border: 210 15% 20%;          /* pop-up gray borders */
         --input: 210 15% 18%;
         --ring: 210 25% 75%;
+
+        --tag-background: 210 40% 50%;   /* More subtle, medium-saturation Gray-Blue */
+        --tag-foreground: 0 0% 100%;     /* Pure White text (Highest contrast) */
+
+        --gradient-primary: linear-gradient(135deg, hsl(210 25% 75%), hsl(210 20% 60%));
+        --gradient-subtle: linear-gradient(180deg, hsl(210 15% 12%), hsl(210 15% 8%));
+
+        --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.25);
+        --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.35);
+        --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.45);
+        --shadow-card: 0 2px 5px 0 hsl(210 20% 15% / 0.3), 0 1px 2px 0 hsl(210 15% 12% / 0.25);
+
+        --chart-1: 210 25% 75%;  /* primary gray-blue */
+        --chart-2: 210 20% 60%;  /* secondary gray */
+        --chart-3: 210 15% 50%;  /* darker gray */
+        --chart-4: 210 10% 40%;  /* muted dark gray */
+        --chart-5: 340 30% 70%;  /* rose accent */
+    }
+    
+    .theme-teal {
+        --background: 220 20% 95%;       /* very light gray-blue */
+        --foreground: 222 20% 10%;       /* soft dark text */
+
+        --card: 222 25% 100%;
+        --card-foreground: 222 15% 10%;
+
+        --primary: 160 80% 40%;          /* Bold Teal */
+        --primary-foreground: 0 0% 100%;
+
+        --secondary: 160 30% 80%;        /* Very Light Teal Tag */
+        --secondary-foreground: 0 0% 0%;
+
+        --muted: 222 10% 90%;
+        --muted-foreground: 222 10% 35%;
+
+        --accent: 345 80% 60%;
+        --accent-foreground: 0 0% 100%;
+
+        --destructive: 0 80% 55%;
+        --destructive-foreground: 0 0% 100%;
+
+        --border: 220 15% 85%;
+        --input: 220 15% 88%;
+        --ring: 160 80% 40%;
+
+        --tag-background: 260 90% 40%;   /* Darker Purple for better contrast */
+        --tag-foreground: 0 0% 100%;    /* Pure White text */
+
+        --gradient-primary: linear-gradient(135deg, hsl(260 95% 55%), hsl(200 85% 50%));
+        --gradient-subtle: linear-gradient(180deg, hsl(220 20% 95%), hsl(222 18% 90%));
+
+        --shadow-sm: 0 1px 2px 0 hsl(222 20% 10% / 0.05);
+        --shadow-md: 0 4px 6px -1px hsl(222 20% 10% / 0.1);
+        --shadow-lg: 0 10px 15px -3px hsl(222 20% 10% / 0.15);
+        --shadow-card: 0 2px 5px 0 hsl(222 30% 20% / 0.1), 0 1px 3px 0 hsl(222 30% 20% / 0.06);
+
+        --chart-1: 260 95% 55%;
+        --chart-2: 200 80% 50%;
+        --chart-3: 280 80% 65%;
+        --chart-4: 160 70% 50%;
+        --chart-5: 345 80% 60%;
+    }
+    
+    .theme-teal.dark {
+        --background: 210 15% 8%;       /* very dark slate gray */
+        --foreground: 210 10% 95%;      /* off-white text */
+
+        --card: 210 15% 12%;            /* slightly lighter than background — pop-up gray */
+        --card-foreground: 210 10% 95%;
+
+        --primary: 140 40% 60%;          /* Muted Forest Green */
+        --primary-foreground: 210 20% 10%;
+
+        --secondary: 160 50% 50%;        /* Balanced Teal Tag */
+        --secondary-foreground: 0 0% 0%;
+
+        --muted: 210 10% 15%;           /* dark slate for muted content */
+        --muted-foreground: 210 10% 55%;
+
+        --accent: 340 30% 70%;          /* subtle rose pop for small highlights */
+        --accent-foreground: 210 20% 10%;
+
+        --destructive: 0 70% 60%;       /* red alerts */
+        --destructive-foreground: 210 20% 10%;
+
+        --border: 210 15% 20%;          /* pop-up gray borders */
+        --input: 210 15% 18%;
+        --ring: 140 40% 60%;
+
+        --tag-background: 210 40% 50%;   /* More subtle, medium-saturation Gray-Blue */
+        --tag-foreground: 0 0% 100%;     /* Pure White text (Highest contrast) */
+
+        --gradient-primary: linear-gradient(135deg, hsl(210 25% 75%), hsl(210 20% 60%));
+        --gradient-subtle: linear-gradient(180deg, hsl(210 15% 12%), hsl(210 15% 8%));
+
+        --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.25);
+        --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.35);
+        --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.45);
+        --shadow-card: 0 2px 5px 0 hsl(210 20% 15% / 0.3), 0 1px 2px 0 hsl(210 15% 12% / 0.25);
+
+        --chart-1: 210 25% 75%;  /* primary gray-blue */
+        --chart-2: 210 20% 60%;  /* secondary gray */
+        --chart-3: 210 15% 50%;  /* darker gray */
+        --chart-4: 210 10% 40%;  /* muted dark gray */
+        --chart-5: 340 30% 70%;  /* rose accent */
+    }
+
+    .theme-gold {
+        --background: 220 20% 95%;       /* very light gray-blue */
+        --foreground: 222 20% 10%;       /* soft dark text */
+
+        --card: 222 25% 100%;
+        --card-foreground: 222 15% 10%;
+
+        --primary: 40 90% 50%;           /* Deep Gold/Orange */
+        --primary-foreground: 222 20% 10%;
+
+        --secondary: 45 50% 80%;         /* Cream/Yellow Tag */
+        --secondary-foreground: 0 0% 0%;
+
+        --muted: 222 10% 90%;
+        --muted-foreground: 222 10% 35%;
+
+        --accent: 345 80% 60%;
+        --accent-foreground: 0 0% 100%;
+
+        --destructive: 0 80% 55%;
+        --destructive-foreground: 0 0% 100%;
+
+        --border: 220 15% 85%;
+        --input: 220 15% 88%;
+        --ring: 40 90% 50%;
+
+        --tag-background: var(--secondary);  /* CORRECTED: Use secondary for consistency */
+        --tag-foreground: var(--secondary-foreground); /* CORRECTED: Use secondary-foreground */
+
+        --gradient-primary: linear-gradient(135deg, hsl(40 90% 50%), hsl(45 80% 55%)); /* CORRECTED: Gold Hue */
+        --gradient-subtle: linear-gradient(180deg, hsl(220 20% 95%), hsl(222 18% 90%));
+
+        --shadow-sm: 0 1px 2px 0 hsl(222 20% 10% / 0.05);
+        --shadow-md: 0 4px 6px -1px hsl(222 20% 10% / 0.1);
+        --shadow-lg: 0 10px 15px -3px hsl(222 20% 10% / 0.15);
+        --shadow-card: 0 2px 5px 0 hsl(222 30% 20% / 0.1), 0 1px 3px 0 hsl(222 30% 20% / 0.06);
+
+        --chart-1: 40 90% 50%; /* CORRECTED: Matches Primary Gold */
+        --chart-2: 200 80% 50%;
+        --chart-3: 280 80% 65%;
+        --chart-4: 160 70% 50%;
+        --chart-5: 345 80% 60%;
+    }
+
+    .theme-gold.dark {
+        --background: 210 15% 8%;       /* very dark slate gray */
+        --foreground: 210 10% 95%;      /* off-white text */
+
+        --card: 210 15% 12%;            /* slightly lighter than background — pop-up gray */
+        --card-foreground: 210 10% 95%;
+
+        --primary: 40 60% 70%;           /* Soft Goldenrod */
+        --primary-foreground: 210 20% 10%;
+
+        --secondary: 50 70% 40%;         /* Muted Ochre Tag */
+        --secondary-foreground: 0 0% 0%; /* BLACK text (Gold is light enough) */
+
+        --muted: 210 10% 15%;           /* dark slate for muted content */
+        --muted-foreground: 210 10% 55%;
+
+        --accent: 340 30% 70%;          /* subtle rose pop for small highlights */
+        --accent-foreground: 210 20% 10%;
+
+        --destructive: 0 70% 60%;       /* red alerts */
+        --destructive-foreground: 210 20% 10%;
+
+        --border: 210 15% 20%;          /* pop-up gray borders */
+        --input: 210 15% 18%;
+        --ring: 40 60% 70%;
+
+        --tag-background: 210 40% 50%;   /* More subtle, medium-saturation Gray-Blue */
+        --tag-foreground: 0 0% 100%;     /* Pure White text (Highest contrast) */
+
+        --gradient-primary: linear-gradient(135deg, hsl(210 25% 75%), hsl(210 20% 60%));
+        --gradient-subtle: linear-gradient(180deg, hsl(210 15% 12%), hsl(210 15% 8%));
+
+        --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.25);
+        --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.35);
+        --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.45);
+        --shadow-card: 0 2px 5px 0 hsl(210 20% 15% / 0.3), 0 1px 2px 0 hsl(210 15% 12% / 0.25);
+
+        --chart-1: 210 25% 75%;  /* primary gray-blue */
+        --chart-2: 210 20% 60%;  /* secondary gray */
+        --chart-3: 210 15% 50%;  /* darker gray */
+        --chart-4: 210 10% 40%;  /* muted dark gray */
+        --chart-5: 340 30% 70%;  /* rose accent */
+    }
+
+    .theme-rose {
+        --background: 220 20% 95%;       /* very light gray-blue */
+        --foreground: 222 20% 10%;       /* soft dark text */
+
+        --card: 222 25% 100%;
+        --card-foreground: 222 15% 10%;
+
+        --primary: 350 90% 45%;          /* Bold Deep Rose */
+        --primary-foreground: 0 0% 100%;
+
+        --secondary: 350 50% 85%;        /* Blush Pink Tag */
+        --secondary-foreground: 0 0% 0%; /* BLACK text */
+
+        --muted: 222 10% 90%;
+        --muted-foreground: 222 10% 35%;
+
+        --accent: 345 80% 60%;
+        --accent-foreground: 0 0% 100%;
+
+        --destructive: 0 80% 55%;
+        --destructive-foreground: 0 0% 100%;
+
+        --border: 220 15% 85%;
+        --input: 220 15% 88%;
+        --ring: 350 90% 45%;
+
+        --tag-background: var(--secondary);  /* CORRECTED: Use secondary for consistency */
+        --tag-foreground: var(--secondary-foreground); /* CORRECTED: Use secondary-foreground */
+
+        --gradient-primary: linear-gradient(135deg, hsl(350 90% 45%), hsl(340 80% 50%)); /* CORRECTED: Rose Hue */
+        --gradient-subtle: linear-gradient(180deg, hsl(220 20% 95%), hsl(222 18% 90%));
+
+        --shadow-sm: 0 1px 2px 0 hsl(222 20% 10% / 0.05);
+        --shadow-md: 0 4px 6px -1px hsl(222 20% 10% / 0.1);
+        --shadow-lg: 0 10px 15px -3px hsl(222 20% 10% / 0.15);
+        --shadow-card: 0 2px 5px 0 hsl(222 30% 20% / 0.1), 0 1px 3px 0 hsl(222 30% 20% / 0.06);
+
+        --chart-1: 350 90% 45%; /* CORRECTED: Matches Primary Rose */
+        --chart-2: 200 80% 50%;
+        --chart-3: 280 80% 65%;
+        --chart-4: 160 70% 50%;
+        --chart-5: 345 80% 60%;
+    }
+
+    .theme-rose.dark {
+        --background: 210 15% 8%;       /* very dark slate gray */
+        --foreground: 210 10% 95%;      /* off-white text */
+
+        --card: 210 15% 12%;            /* slightly lighter than background — pop-up gray */
+        --card-foreground: 210 10% 95%;
+
+        --primary: 340 50% 75%;          /* Soft Rose/Pink */
+        --primary-foreground: 210 20% 10%;
+
+        --secondary: 350 30% 70%;        /* Vibrant Crimson Tag */
+        --secondary-foreground: 0 0% 0%;
+
+        --muted: 210 10% 15%;           /* dark slate for muted content */
+        --muted-foreground: 210 10% 55%;
+
+        --accent: 340 30% 70%;          /* subtle rose pop for small highlights */
+        --accent-foreground: 210 20% 10%;
+
+        --destructive: 0 70% 60%;       /* red alerts */
+        --destructive-foreground: 210 20% 10%;
+
+        --border: 210 15% 20%;          /* pop-up gray borders */
+        --input: 210 15% 18%;
+        --ring: 340 50% 75%;
+
+        --tag-background: 210 40% 50%;   /* More subtle, medium-saturation Gray-Blue */
+        --tag-foreground: 0 0% 100%;     /* Pure White text (Highest contrast) */
 
         --gradient-primary: linear-gradient(135deg, hsl(210 25% 75%), hsl(210 20% 60%));
         --gradient-subtle: linear-gradient(180deg, hsl(210 15% 12%), hsl(210 15% 8%));

@@ -3,7 +3,6 @@ from src.index.faiss_index_adapter import FAISSIndexAdapter
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-# --- 1. Extract PDF chunks (from folder) ---
 pdf_folder = "src/data/sample_pdfs"   
 extractor = PDFExtractor()
 semantic_chunks, positional_chunks = extractor.extract_from_folder(pdf_folder)

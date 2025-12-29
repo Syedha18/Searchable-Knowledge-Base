@@ -20,3 +20,11 @@ wheels/
 *.pdf
 
 .data
+
+improvs.md
+
+storage/
+
+src/data/
+
+node_modules/
