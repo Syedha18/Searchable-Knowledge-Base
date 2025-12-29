@@ -4,7 +4,7 @@ from llm_interface import LocalLLMInterface
 # Initialize LLM interface
 llm = LocalLLMInterface(
     backend="ollama",       # or "vllm" if using vLLM
-    model="gemma3:4b",
+    model="llama3:instruct",
     temperature=0.2,
     max_tokens=200
 )

@@ -16,7 +16,7 @@ from typing import List, Dict, Any, Optional
 class FAISSIndexAdapter:
     """
     A flexible wrapper around FAISS indexes.
-
+    
     Supports multiple index types (Flat, IVF, IVFPQ, HNSW)
     and optional GPU acceleration.
     """

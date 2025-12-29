@@ -13,7 +13,7 @@ class LocalLLMInterface:
     def __init__(
         self,
         backend: str = "ollama",
-        model: str = "gemma3:4b",
+        model: str = "llama3:instruct",
         base_url: str = "http://localhost:11434",
         temperature: float = 0.3,
         max_tokens: int = 1024,

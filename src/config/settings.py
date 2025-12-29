@@ -43,7 +43,7 @@ FAISS_CONFIG = {
 # Use os.getenv() to read from environment variables first
 # This lets you change the host without touching the code
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-LLM_MODEL = os.getenv("LLM_MODEL", "gemma3:4b") # The model to use for chat
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3:instruct") # The model to use for chat
 
 API_HOST = "0.0.0.0"  # Listen on all network interfaces
 API_PORT = 8000

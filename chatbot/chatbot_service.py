@@ -1,7 +1,7 @@
 # chatbot/chatbot_service.py
 from typing import List, Dict, Optional, Generator
 
-from src.index.faiss_indexer import FAISSIndexer  # your FAISS+NoSQL layer
+from src.index.faiss_indexer import FAISSIndexer  
 from chatbot.context_builder import ContextBuilder
 from chatbot.llm_interface import LocalLLMInterface
 
