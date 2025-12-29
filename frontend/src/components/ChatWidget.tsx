@@ -1,4 +1,3 @@
-// ChatWidget.tsx
 import { X } from "lucide-react";
 import React from 'react';
 import {ChatBody} from "@/components/ChatBody.tsx";
@@ -6,7 +5,6 @@ import {useState} from "react";
 import {API_BASE_URL} from "@/config.ts";
 import {MessageCircle} from "lucide-react";
 
-// Define the props interface
 interface ChatWidgetProps {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
@@ -18,15 +16,15 @@ const initialMessages: Message[] = [
     {
         id: '1',
         role: 'bot',
-        content: "Hey vicky, Ask me anything from the SKB",
+        content: "Ask me anything from the SKB",
         timestamp: new Date()
     }
 ];
 
 export type Message = {
     id: string;
-    role: 'user' | 'bot'; // 'user' for Vicky, 'bot' for the AI
-    content: string; // The message text, potentially containing markdown
+    role: 'user' | 'bot'; 
+    content: string; 
     timestamp: Date;
     isStreaming?: boolean;
 };
