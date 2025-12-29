@@ -57,3 +57,7 @@ PDF_FOLDER.mkdir(exist_ok=True)
 DOCUMENT_PUBLIC_PATH = "/pdfs"  
 # The base URL the frontend uses to serve PDFs.
 DOCUMENT_SERVER_URL = f"http://localhost:{API_PORT}{DOCUMENT_PUBLIC_PATH}/"
+
+MONGO_URI = "mongodb://localhost:27017"
+MONGO_DB_NAME = "skb"
+USE_MONGODB = True

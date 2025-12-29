@@ -23,6 +23,14 @@ from src.config.settings import (
     PDF_FOLDER, INDEX_FILE, EMBEDDING_MODEL, FAISS_CONFIG, VISUAL_DATA_DIR
 )
 from src.utils.embedder import set_global_embedder, get_embedding, cosine_similarity
+from src.config.settings import USE_MONGODB
+from src.repositories.visual_repository import (
+    insert_visual_elements,
+    delete_by_pdf
+)
+from datetime import datetime
+from src.utils.build_visual_doc import build_visual_documents
+from src.repositories.visual_repository import get_visuals_by_pdfs
 
 def build_text_index_pipeline() -> (FAISSIndexer, int):
     """
@@ -56,9 +64,10 @@ def build_text_index_pipeline() -> (FAISSIndexer, int):
     print(f"--- Text index build complete in {total_time:.2f}s ---")
     return indexer, len(semantic_chunks)
 
-def build_visual_index_pipeline():
+async def build_visual_index_pipeline():
     """
-    Processes PDFs for images and tables, generates captions, and saves visual JSONs.
+    Processes PDFs for images and tables, generates captions,
+    and stores visual metadata (MongoDB or JSON fallback).
     """
     print("--- Visual Data Processing Initiated ---")
     start_time = time.time()
@@ -84,13 +93,19 @@ def build_visual_index_pipeline():
             for i, img_data in enumerate(results["images"]):
                 img_data["caption"] = captions[i]["caption"]
 
-        # Save results as JSON
-        results_path = VISUAL_DATA_DIR / f"{pdf_file}_results.json"
-        os.makedirs(VISUAL_DATA_DIR, exist_ok=True)
-        with open(results_path, "w") as f:
-            json.dump(results, f, indent=2)
+        pdf_name = pdf_file.replace(".pdf", "")
 
-        print(f"Visual data for {pdf_file} saved at {results_path}")
+        if USE_MONGODB:
+            docs = build_visual_documents(pdf_name, results)
+            await delete_by_pdf(pdf_name)
+            await insert_visual_elements(docs)
+            print(f"[MongoDB] Visual data for {pdf_file} stored successfully")
+        else:
+            os.makedirs(VISUAL_DATA_DIR, exist_ok=True)
+            results_path = VISUAL_DATA_DIR / f"{pdf_file}_results.json"
+            with open(results_path, "w") as f:
+                json.dump(results, f, indent=2)
+            print(f"[JSON] Visual data for {pdf_file} saved at {results_path}")
 
     total_time = time.time() - start_time
     print(f"--- Visual data processing complete in {total_time:.2f}s ---")
@@ -139,7 +154,7 @@ async def lifespan(app: FastAPI):
     try:
         if not VISUAL_DATA_DIR.exists() or not any(VISUAL_DATA_DIR.iterdir()):
             print("--- Visual data missing. Processing all PDFs... ---")
-            build_visual_index_pipeline()  # handles PDFs internally
+            await build_visual_index_pipeline()  
         else:
             print("--- Visual data already exists. Skipping visual processing. ---")
     except Exception as e:
@@ -246,7 +261,7 @@ def get_root():
 
 
 @app.post("/search", response_model=SearchResponse)
-def post_unified_search(
+async def post_unified_search(
         request: SearchRequest,
         indexer: FAISSIndexer = Depends(get_indexer)
 ):
@@ -270,44 +285,87 @@ def post_unified_search(
         
         visuals = []
 
-        for pdf_name in related_pdfs:
-            result_json_path = os.path.join(VISUAL_DATA_DIR, f"{pdf_name}.pdf_results.json")
-
-            if not os.path.exists(result_json_path):
-                continue
+        if USE_MONGODB:
+            # --- MONGODB SEARCH ---
+            visual_records = await get_visuals_by_pdfs(list(related_pdfs))
             
-            with open(result_json_path, "r") as f:
-                visual_data = json.load(f)
-
-            # Search through image captions
-            for img in visual_data.get("images", []):
-                caption = img.get("caption", "")
-                if caption:
-                    score = cosine_similarity(query_embedding, get_embedding(caption))
-                    if score > 0.10:
+            for record in visual_records:
+                # Map MongoDB record to visual item structure
+                item_type = record.get("type")
+                
+                if item_type == "image":
+                    caption = record.get("caption", "")
+                    if caption:
+                        score = cosine_similarity(query_embedding, get_embedding(caption))
+                        if score > 0.10:
+                            visuals.append({
+                                "filename": record["filename"],
+                                "page": record["page_number"],
+                                "type": "image",
+                                "caption": caption,
+                                "url": f"/visuals/{record['pdf_name']}/images/{record['filename']}",
+                                "score": score,
+                            })
+                            
+                elif item_type == "table":
+                    # Build description for table
+                    meta = record.get("table_metadata", {})
+                    rows = meta.get("rows")
+                    cols = meta.get("columns")
+                    desc = f"Table with {rows} rows and {cols} columns."
+                    
+                    score = cosine_similarity(query_embedding, get_embedding(desc))
+                    if score > 0.99:
                         visuals.append({
-                            "filename": img["filename"],
-                            "page": img["page"],
-                            "type": "image",
-                            "caption": caption,
-                            "url": f"/visuals/{pdf_name}/images/{img['filename']}",
+                            "filename": record["filename"],
+                            "page": record["page_number"],
+                            "type": "table",
+                            "rows": rows,
+                            "columns": cols,
+                            "url": f"/visuals/{record['pdf_name']}/tables/{record['filename']}",
                             "score": score,
                         })
 
-            # Search through tables
-            for tbl in visual_data.get("tables", []):
-                desc = f"Table with {tbl['rows']} rows and {tbl['columns']} columns."
-                score = cosine_similarity(query_embedding, get_embedding(desc))
-                if score > 0.99:
-                    visuals.append({
-                        "filename": tbl["filename"],
-                        "page": tbl["page"],
-                        "type": "table",
-                        "rows": tbl.get("rows"),
-                        "columns": tbl.get("columns"),
-                        "url": f"/visuals/{pdf_name}/tables/{tbl['filename']}",
-                        "score": score,
-                    })
+        else:
+            # --- FILE SYSTEM SEARCH (LEGACY) ---
+            for pdf_name in related_pdfs:
+                result_json_path = os.path.join(VISUAL_DATA_DIR, f"{pdf_name}.pdf_results.json")
+
+                if not os.path.exists(result_json_path):
+                    continue
+                
+                with open(result_json_path, "r") as f:
+                    visual_data = json.load(f)
+
+                # Search through image captions
+                for img in visual_data.get("images", []):
+                    caption = img.get("caption", "")
+                    if caption:
+                        score = cosine_similarity(query_embedding, get_embedding(caption))
+                        if score > 0.10:
+                            visuals.append({
+                                "filename": img["filename"],
+                                "page": img["page"],
+                                "type": "image",
+                                "caption": caption,
+                                "url": f"/visuals/{pdf_name}/images/{img['filename']}",
+                                "score": score,
+                            })
+
+                # Search through tables
+                for tbl in visual_data.get("tables", []):
+                    desc = f"Table with {tbl['rows']} rows and {tbl['columns']} columns."
+                    score = cosine_similarity(query_embedding, get_embedding(desc))
+                    if score > 0.99:
+                        visuals.append({
+                            "filename": tbl["filename"],
+                            "page": tbl["page"],
+                            "type": "table",
+                            "rows": tbl.get("rows"),
+                            "columns": tbl.get("columns"),
+                            "url": f"/visuals/{pdf_name}/tables/{tbl['filename']}",
+                            "score": score,
+                        })
 
         visuals.sort(key=lambda v: v["score"], reverse=True)
 
@@ -373,7 +431,7 @@ async def upload_document(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
-def _run_rebuild(app_state: dict, rebuild_visuals: bool = False):
+async def _run_rebuild(app_state: dict, rebuild_visuals: bool = False):
     """
     Helper function to rebuild the text index and optionally visual data,
     then update the app state atomically.
@@ -386,7 +444,7 @@ def _run_rebuild(app_state: dict, rebuild_visuals: bool = False):
     # Rebuild visual data only if requested
     if rebuild_visuals:
         print("--- Rebuilding missing visual data ---")
-        build_visual_index_pipeline()
+        await build_visual_index_pipeline()
     else:
         print("--- Skipping visual data rebuild ---")
 
