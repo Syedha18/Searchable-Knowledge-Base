@@ -23,9 +23,25 @@ class PDFProcessor:
         for dir_path in [self.images_dir, self.tables_dir, self.charts_dir]:
             dir_path.mkdir(parents=True, exist_ok=True)
 
-    def extract_images(self, min_width=100, min_height=100, min_bytes=2048):
-        """Extract images from PDF, skipping tiny logos/signatures"""
+    def extract_images(
+        self,
+        min_width=100,
+        min_height=100,
+        min_bytes=2048,
+        min_variance=10.0
+    ):
+        """
+        Extract meaningful images from PDF while filtering:
+        - tiny logos/icons
+        - repeated decorative images
+        - solid color blocks (black/white)
+        - layout separators
+        """
+        from PIL import Image, ImageStat
+        import io
+    
         extracted_images = []
+        seen_signatures = set()  # deduplication per PDF
     
         try:
             pdf_document = fitz.open(self.pdf_path)
@@ -37,20 +53,43 @@ class PDFProcessor:
                 for img_index, img_info in enumerate(image_list):
                     xref = img_info[0]
                     base_image = pdf_document.extract_image(xref)
-                    image_bytes = base_image["image"]
-                    image_ext = base_image["ext"]
+    
+                    image_bytes = base_image.get("image")
+                    image_ext = base_image.get("ext", "png")
                     width = int(base_image.get("width", 0))
                     height = int(base_image.get("height", 0))
-                    
-                    # --- Filters ---
+    
+                    # ---- Size-based filters ----
                     if width < min_width or height < min_height:
-                        continue  
+                        continue
                     if len(image_bytes) < min_bytes:
                         continue
     
-                    # Save the image
-                    image_filename = f"page{page_num + 1}_img{img_index + 1}.{image_ext}"
+                    # ---- Aspect ratio sanity (skip separators) ----
+                    aspect_ratio = max(width / height, height / width)
+                    if aspect_ratio > 10:  # very long thin images
+                        continue
+    
+                    # ---- Deduplicate repeated images ----
+                    signature = (width, height, len(image_bytes))
+                    if signature in seen_signatures:
+                        continue
+                    seen_signatures.add(signature)
+    
+                    # ---- Solid color / low-variance filter ----
+                    try:
+                        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+                        stat = ImageStat.Stat(img)
+                        if sum(stat.var) < min_variance:
+                            continue
+                    except Exception:
+                        # If PIL fails, skip to be safe
+                        continue
+    
+                    # ---- Save image ----
+                    image_filename = f"page{page_num + 1}_img{len(extracted_images) + 1}.{image_ext}"
                     image_path = self.images_dir / image_filename
+    
                     with open(image_path, "wb") as f:
                         f.write(image_bytes)
     
@@ -67,9 +106,8 @@ class PDFProcessor:
             return extracted_images
     
         except Exception as e:
-            print(f"Error extracting images: {e}")
+            print(f"[ERROR] Image extraction failed: {e}")
             return []
-
 
     def extract_tables(self):
         """Extract tables from PDF using pdfplumber"""
@@ -98,7 +136,8 @@ class PDFProcessor:
                                 "path": str(table_path),
                                 "page": page_num + 1,
                                 "rows": len(table),
-                                "columns": len(table) if table else 0
+                                "columns": len(table) if table else 0,
+                                "headers": table[0] if table else []
                             })
             
             return extracted_tables

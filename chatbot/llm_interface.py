@@ -7,7 +7,13 @@ import json
 
 class LocalLLMInterface:
     """
-    Interface for running prompts on a local LLM (e.g., Ollama, vLLM, LM Studio).
+    Interface for running prompts on a local LLM backend.
+
+    Currently supported:
+    - Ollama (active, default)
+    
+    Designed for extensibility:
+    - vLLM support can be enabled with no changes to calling code
     """
 
     def __init__(
@@ -27,9 +33,6 @@ class LocalLLMInterface:
         if self.backend not in ["ollama", "vllm"]:
             raise ValueError(f"Unsupported backend: {self.backend}")
 
-    # ------------------------------------------
-    # Ollama Inference
-    # ------------------------------------------
     def _query_ollama(self, prompt: str) -> Generator[str, None, None]: # <-- CHANGED
         """
         Send prompt to Ollama REST API and stream the response.
@@ -57,7 +60,7 @@ class LocalLLMInterface:
                     # Pull out the text piece
                     text_chunk = chunk.get('response', '')
                     if text_chunk:
-                        yield text_chunk  # <-- We YIELD the piece instead of returning
+                        yield text_chunk 
                     
                     # Ollama sends a 'done' message at the end
                     if chunk.get('done', False):
@@ -66,12 +69,10 @@ class LocalLLMInterface:
                     # Sometimes Ollama sends weird keep-alive lines, just ignore them
                     pass
 
-    # ------------------------------------------
-    # vLLM Inference (Optional)
-    # ------------------------------------------
+
     def _query_vllm(self, prompt: str) -> str:
         """
-        Send prompt to vLLM REST API (OpenAI-compatible).
+        Send prompt to REST API (OpenAI-compatible).
         """
         url = f"{self.base_url}/v1/completions"
         payload = {
@@ -87,8 +88,7 @@ class LocalLLMInterface:
 
         data = response.json()
         return data["choices"][0]["text"].strip()
-        
-    # --- REWRITTEN FUNCTION ---
+
     def stream_response(self, prompt: str) -> Generator[str, None, None]:
         """
         Generate a response and stream the text chunks as they arrive.
@@ -101,9 +101,9 @@ class LocalLLMInterface:
                 yield chunk
     
         elif self.backend == "vllm":
-            # Apply the same fix for other backends if they are streaming generators
-            for chunk in self._query_vllm(prompt):
-                yield chunk
+            # vLLM currently does not support streaming in this interface
+            text = self._query_vllm(prompt)
+            yield text
     
         else:
             raise NotImplementedError(f"Backend '{self.backend}' not supported")

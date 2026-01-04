@@ -1,9 +1,9 @@
-# chatbot/chatbot_service.py
 from typing import List, Dict, Optional, Generator
 
 from src.index.faiss_indexer import FAISSIndexer  
 from chatbot.context_builder import ContextBuilder
 from chatbot.llm_interface import LocalLLMInterface
+from src.schemas.search import SearchResult
 
 
 class ChatbotService:
@@ -62,7 +62,7 @@ class ChatbotService:
             # --- Step 3: Yield Initial Metadata (Sources) ---
             # The frontend needs this info before the stream starts.
             yield {
-                "sources": retrieved_chunks,
+                "sources": [s.model_dump() for s in retrieved_chunks],
                 "model": self.llm_interface.model,
                 "backend": self.llm_interface.backend,
                 "event": "start",
@@ -71,7 +71,6 @@ class ChatbotService:
             # --- Step 4: Generate and Stream Response ---
             full_reply_text = ""
     
-            # 🔑 Use the streaming function here!
             for chunk in self.llm_interface.stream_response(prompt_data["prompt"]):
                 full_reply_text += chunk
     
@@ -93,3 +92,24 @@ class ChatbotService:
                 "sources": [],
                 "event": "error",
             }
+
+    def handle_query(self, query: str, session_id: str = "default") -> Dict[str, any]:
+        """
+        Non-streaming wrapper for handle_query_stream.
+        Collects everything and returns a final dict.
+        """
+        full_reply = ""
+        sources = []
+        for chunk in self.handle_query_stream(query, session_id):
+            if "reply_chunk" in chunk:
+                full_reply += chunk["reply_chunk"]
+            if "sources" in chunk:
+                sources = chunk["sources"]
+            if "reply" in chunk and "reply_chunk" not in chunk:
+                 # Error case or non-streaming immediate reply
+                 return chunk
+        
+        return {
+            "reply": full_reply,
+            "sources": sources
+        }

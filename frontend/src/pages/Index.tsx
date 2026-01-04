@@ -3,10 +3,11 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { SearchBar } from "@/components/SearchBar";
 import { DocumentCard } from "@/components/DocumentCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {Badge, FileSearch, FileText, Image, Settings, Table} from "lucide-react";
-import {Button} from "@/components/ui/button.tsx";
+import { Badge, FileSearch, FileText, Image, Settings, Table } from "lucide-react";
+import { Button } from "@/components/ui/button.tsx";
 import { ThemeSelectionPanel } from "@/components/ThemeSelectionPanel.tsx";
-import {Card, CardHeader, CardTitle} from "@/components/ui/card.tsx";
+import { TableResult } from "@/components/TableResult";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 
 async function searchDocuments(query: string) {
     const res = await fetch("http://localhost:8000/search", {
@@ -30,7 +31,7 @@ export default function Index() {
     const [allResults, setAllResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [isThemePanelOpen, setIsThemePanelOpen] = useState(false);
-    
+
     const [pdfResults, setPdfResults] = useState<any[]>([]);
     const [imageResults, setImageResults] = useState<any[]>([]);
 
@@ -49,7 +50,7 @@ export default function Index() {
                 return {
                     ...r,
 
-                    type: "pdf", 
+                    type: "pdf",
                     title: r.heading,
                     description: r.text,
                     category: r.file_name,
@@ -67,16 +68,23 @@ export default function Index() {
             const visuals = (data.visual_results || []).map((v: any) => {
 
                 const visualUrl = `http://localhost:8000${v.url}`;
-                
+
+                // Extract PDF Name from URL /visuals/<pdf_name>/...
+                // URL structure: /visuals/{pdf_name}/{type}/{filename}
+                const pathParts = v.url.split('/');
+                const pdfName = pathParts[2];
+                const sourcePdfUrl = pdfName ? `${DOCUMENT_BASE_URL}${pdfName}.pdf#page=${v.page}` : null;
+
                 return {
                     ...v,
-                    type: "image",
+                    type: v.type || "image", // Use backend type (table/image) or default to image
                     title: v.caption || v.filename,
                     description: `Image in ${v.filename}`, // 👈 Generic description for image
                     category: v.filename,
                     date: `Page ${v.page}`, // 👈 Using Page Number here
                     tags: [],
                     // The onClick function that opens the Image is here!
+                    sourcePdfUrl, // Pass for backlinking
                     onClick: () => {
                         if (visualUrl) window.open(visualUrl, "_blank");
                         else console.warn("No image URL for", v.filename);
@@ -98,7 +106,7 @@ export default function Index() {
 
     const filteredResults = useMemo(() => {
         return allResults.filter(r =>
-            activeTab === "pdf" ? r.type === "text" : r.type === "image"
+            activeTab === "pdf" ? r.type === "text" : (r.type === "image" || r.type === "table")
         );
     }, [allResults, activeTab]);
 
@@ -237,25 +245,51 @@ function ResultsGrid({ items, emptyText }: { items: any[]; emptyText: string }) 
                         >
                             {/* Image or table preview */}
                             <div className="relative aspect-video overflow-hidden bg-muted">
-                                {item.type === "image" ? (
-                                    <img
-                                        src={item.url?.startsWith("http") ? item.url : `http://localhost:8000${item.url}`}
-                                        alt={item.caption || "Visual preview"}
-                                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                    />
+                                {item.type === "table" ? (
+                                    <div className="h-full w-full bg-background">
+                                        <TableResult
+                                            rows={item.rows}
+                                            columns={item.columns}
+                                            table_data={item.table_data}
+                                            extracted_rows={item.extracted_rows}
+                                            caption={item.caption}
+                                            filename={item.filename}
+                                            page_number={item.page_number}
+                                            score={item.score}
+                                            url={item.url}
+                                            sourcePdfUrl={item.sourcePdfUrl}
+                                            onClick={item.onClick}
+                                        />
+                                    </div>
+                                ) : item.type === "image" ? (
+                                    <div className="relative h-full w-full">
+                                        <img
+                                            src={item.url?.startsWith("http") ? item.url : `http://localhost:8000${item.url}`}
+                                            alt={item.caption || "Visual preview"}
+                                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                        />
+                                        {/* Backlink Overlay for Images (mimics Table header icon) */}
+                                        {item.sourcePdfUrl && (
+                                            <div
+                                                className="absolute top-2 left-2 z-20 rounded-md bg-secondary/80 p-2 backdrop-blur-sm transition-opacity hover:bg-secondary cursor-pointer"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    window.open(item.sourcePdfUrl, "_blank");
+                                                }}
+                                                title={`Open PDF at Page ${item.date}`}
+                                            >
+                                                <FileText className="h-5 w-5 text-secondary-foreground" />
+                                            </div>
+                                        )}
+                                    </div>
                                 ) : (
                                     <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                                         <Table className="h-10 w-10 opacity-50" />
                                     </div>
                                 )}
 
-                                {item.score && (
-                                    <Badge className="absolute top-2 right-2 bg-primary text-white shadow">
-                                        {(item.score * 100).toFixed(0)}%
-                                    </Badge>
-                                )}
                             </div>
-                            
+
                         </Card>
                     );
                 }

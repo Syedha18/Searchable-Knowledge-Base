@@ -1,23 +1,19 @@
 # run_chatbot.py
 import os
+import time
 from chatbot.chatbot_service import ChatbotService
 from src.index.faiss_indexer import FAISSIndexer 
 from chatbot.llm_interface import LocalLLMInterface
 from src.utils.pdf_extractor import PDFExtractor
-import time
 
 # --- Config ---
-PDF_FOLDER = "src/data/sample_pdfs"
-INDEX_FILE = "storage/skb.index"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-
-# Your advanced FAISS config
-FAISS_CONFIG = {
-    "index_type": "ivfpq",
-    "nlist": 100,  # Number of clusters
-    "m": 8,        # Number of sub-quantizers
-    "bits": 8,     # 8 bits per sub-quantizer
-}
+# Imported from centralized settings to ensure DRY principle
+from src.config.settings import (
+    PDF_FOLDER,
+    INDEX_FILE,
+    EMBEDDING_MODEL,
+    FAISS_CONFIG
+)
 
 # --- 1. Initialize the Indexer ---
 # This just loads the embedding model, not the data

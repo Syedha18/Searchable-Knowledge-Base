@@ -28,3 +28,5 @@ storage/
 src/data/
 
 node_modules/
+
+*.tsbuildinfo

@@ -22,6 +22,7 @@ from fastapi.responses import StreamingResponse
 from src.config.settings import (
     PDF_FOLDER, INDEX_FILE, EMBEDDING_MODEL, FAISS_CONFIG, VISUAL_DATA_DIR
 )
+from src.schemas.search import SearchResult
 from src.utils.embedder import set_global_embedder, get_embedding, cosine_similarity
 from src.config.settings import USE_MONGODB
 from src.repositories.visual_repository import (
@@ -119,13 +120,13 @@ def dedup_text_results(results):
 
     for r in results:
         key = (
-            r.get("file_name"),
-            r.get("page_number"),
-            r.get("heading"),
+            r.file_name,
+            r.page_number,
+            r.heading,
         )
 
         # Keep the best (lowest distance) chunk per section
-        if key not in deduped or r["distance"] < deduped[key]["distance"]:
+        if key not in deduped or r.distance < deduped[key].distance:
             deduped[key] = r
 
     return list(deduped.values())
@@ -204,13 +205,6 @@ app.mount("/visuals", StaticFiles(directory=str(VISUAL_DATA_DIR)), name="visuals
 class SearchRequest(BaseModel):
     query: str
     top_k: int = 10
-    
-class SearchResult(BaseModel):
-    heading: str
-    text: str
-    distance: float
-    file_name: str     
-    page_number: int
 
 class VisualItem(BaseModel):
     filename: str
@@ -262,111 +256,184 @@ def get_root():
 
 @app.post("/search", response_model=SearchResponse)
 async def post_unified_search(
-        request: SearchRequest,
-        indexer: FAISSIndexer = Depends(get_indexer)
+    request: SearchRequest,
+    indexer: FAISSIndexer = Depends(get_indexer)
 ):
     """
-    Performs a unified vector search across both
-    text chunks (FAISS) and visual data (captions/tables).
+    Performs a unified semantic search across:
+    - Text chunks (FAISS)
+    - Visual elements (Images + Tables)
     """
     try:
-        if not request.query.strip():
+        # ---- Guard: empty query ----
+        if not request.query or not request.query.strip():
             return SearchResponse(text_results=[], visual_results=[])
-            
-        text_results = indexer.search(query=request.query, top_k=request.top_k)
-        
-        text_results = dedup_text_results(text_results)
-        
-        text_results = [SearchResult(**r) for r in text_results]
 
-        # --- VISUAL SEARCH ---
-        query_embedding = get_embedding(request.query)
-        related_pdfs = {res.file_name.replace(".pdf", "") for res in text_results}
-        
+        # =============================
+        # TEXT SEARCH (FAISS)
+        # =============================
+        raw_text_results = indexer.search(
+            query=request.query,
+            top_k=request.top_k
+        )
+
+        deduped_text = dedup_text_results(raw_text_results)
+        text_results = deduped_text
+
+        # Identify related PDFs
+        related_pdfs = {
+            res.file_name.replace(".pdf", "")
+            for res in text_results
+            if res.file_name
+        }
+
+        if not related_pdfs:
+            return SearchResponse(
+                text_results=text_results,
+                visual_results=[]
+            )
+
+        # =============================
+        # VISUAL SEARCH
+        # =============================
         visuals = []
+        query_embedding = get_embedding(request.query)
 
+        # -----------------------------
+        # MongoDB Path
+        # -----------------------------
         if USE_MONGODB:
-            # --- MONGODB SEARCH ---
             visual_records = await get_visuals_by_pdfs(list(related_pdfs))
-            
+
             for record in visual_records:
-                # Map MongoDB record to visual item structure
                 item_type = record.get("type")
-                
+                page_number = record.get("page_number")
+                filename = record.get("filename")
+                pdf_name = record.get("pdf_name")
+
+                if not filename or not pdf_name:
+                    continue
+
+                # -------- IMAGE --------
                 if item_type == "image":
-                    caption = record.get("caption", "")
-                    if caption:
-                        score = cosine_similarity(query_embedding, get_embedding(caption))
-                        if score > 0.10:
-                            visuals.append({
-                                "filename": record["filename"],
-                                "page": record["page_number"],
-                                "type": "image",
-                                "caption": caption,
-                                "url": f"/visuals/{record['pdf_name']}/images/{record['filename']}",
-                                "score": score,
-                            })
-                            
+                    caption = record.get("caption")
+                    if not isinstance(caption, str) or not caption.strip():
+                        continue
+
+                    score = cosine_similarity(
+                        query_embedding,
+                        get_embedding(caption)
+                    )
+
+                    if score > 0.10:
+                        visuals.append({
+                            "filename": filename,
+                            "page": page_number,
+                            "type": "image",
+                            "caption": caption,
+                            "url": f"/visuals/{pdf_name}/images/{filename}",
+                            "score": score,
+                        })
+
+                # -------- TABLE --------
                 elif item_type == "table":
-                    # Build description for table
                     meta = record.get("table_metadata", {})
                     rows = meta.get("rows")
                     cols = meta.get("columns")
+
+                    headers = meta.get("headers", [])
+                    safe_headers = [
+                        h for h in headers
+                        if isinstance(h, str) and h.strip()
+                    ]
+
                     desc = f"Table with {rows} rows and {cols} columns."
-                    
-                    score = cosine_similarity(query_embedding, get_embedding(desc))
-                    if score > 0.99:
+                    if safe_headers:
+                        desc += f" Columns: {', '.join(safe_headers[:5])}"
+
+                    score = cosine_similarity(
+                        query_embedding,
+                        get_embedding(desc)
+                    )
+
+                    if score > 0.50:
                         visuals.append({
-                            "filename": record["filename"],
-                            "page": record["page_number"],
+                            "filename": filename,
+                            "page": page_number,
                             "type": "table",
                             "rows": rows,
                             "columns": cols,
-                            "url": f"/visuals/{record['pdf_name']}/tables/{record['filename']}",
+                            "url": f"/visuals/{pdf_name}/tables/{filename}",
                             "score": score,
                         })
 
+        # -----------------------------
+        # Legacy JSON Path
+        # -----------------------------
         else:
-            # --- FILE SYSTEM SEARCH (LEGACY) ---
             for pdf_name in related_pdfs:
-                result_json_path = os.path.join(VISUAL_DATA_DIR, f"{pdf_name}.pdf_results.json")
-
-                if not os.path.exists(result_json_path):
+                json_path = VISUAL_DATA_DIR / f"{pdf_name}.pdf_results.json"
+                if not json_path.exists():
                     continue
-                
-                with open(result_json_path, "r") as f:
+
+                with open(json_path, "r") as f:
                     visual_data = json.load(f)
 
-                # Search through image captions
+                # -------- IMAGES --------
                 for img in visual_data.get("images", []):
-                    caption = img.get("caption", "")
-                    if caption:
-                        score = cosine_similarity(query_embedding, get_embedding(caption))
-                        if score > 0.10:
-                            visuals.append({
-                                "filename": img["filename"],
-                                "page": img["page"],
-                                "type": "image",
-                                "caption": caption,
-                                "url": f"/visuals/{pdf_name}/images/{img['filename']}",
-                                "score": score,
-                            })
+                    caption = img.get("caption")
+                    if not isinstance(caption, str) or not caption.strip():
+                        continue
 
-                # Search through tables
-                for tbl in visual_data.get("tables", []):
-                    desc = f"Table with {tbl['rows']} rows and {tbl['columns']} columns."
-                    score = cosine_similarity(query_embedding, get_embedding(desc))
-                    if score > 0.99:
+                    score = cosine_similarity(
+                        query_embedding,
+                        get_embedding(caption)
+                    )
+
+                    if score > 0.50:
                         visuals.append({
-                            "filename": tbl["filename"],
-                            "page": tbl["page"],
-                            "type": "table",
-                            "rows": tbl.get("rows"),
-                            "columns": tbl.get("columns"),
-                            "url": f"/visuals/{pdf_name}/tables/{tbl['filename']}",
+                            "filename": img.get("filename"),
+                            "page": img.get("page"),
+                            "type": "image",
+                            "caption": caption,
+                            "url": f"/visuals/{pdf_name}/images/{img.get('filename')}",
                             "score": score,
                         })
 
+                # -------- TABLES --------
+                for tbl in visual_data.get("tables", []):
+                    rows = tbl.get("rows")
+                    cols = tbl.get("columns")
+
+                    headers = tbl.get("headers", [])
+                    safe_headers = [
+                        h for h in headers
+                        if isinstance(h, str) and h.strip()
+                    ]
+
+                    desc = f"Table with {rows} rows and {cols} columns."
+                    if safe_headers:
+                        desc += f" Columns: {', '.join(safe_headers[:5])}"
+
+                    score = cosine_similarity(
+                        query_embedding,
+                        get_embedding(desc)
+                    )
+
+                    if score > 0.50:
+                        visuals.append({
+                            "filename": tbl.get("filename"),
+                            "page": tbl.get("page"),
+                            "type": "table",
+                            "rows": rows,
+                            "columns": cols,
+                            "url": f"/visuals/{pdf_name}/tables/{tbl.get('filename')}",
+                            "score": score,
+                        })
+
+        # =============================
+        # FINAL SORT + RESPONSE
+        # =============================
         visuals.sort(key=lambda v: v["score"], reverse=True)
 
         return SearchResponse(
@@ -375,7 +442,10 @@ async def post_unified_search(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unified search failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unified search failed: {str(e)}"
+        )
 
 
 @app.post("/stream_query")

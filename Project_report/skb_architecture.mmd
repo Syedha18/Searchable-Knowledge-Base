@@ -1,0 +1,52 @@
+graph TD
+    User["User / Client"] -->|"HTTP Requests"| FE["Frontend (React + Vite)"]
+    FE -->|"API Calls / Stream"| API["API Gateway (FastAPI)"]
+
+    subgraph "Backend Core (src, chatbot)"
+        API -->|"Unified Search"| Search["Unified Search Engine"]
+        API -->|"Chat Stream"| Chat["Chatbot Service"]
+        API -->|"Upload / Rebuild"| Ingest["Ingestion Pipeline"]
+        
+        Search -->|"Deduplication & Ranking"| Rank["Result Ranker"]
+    end
+
+    subgraph "Data Layer"
+        PDFs[("PDF Filesystem")]
+        FAISS[("FAISS Vector Index")]
+        VisDB[("Visual Metadata DB\nMongoDB/JSON")]
+    end
+
+    subgraph "AI Processing & Utilities"
+        Embed["Embedder Model"]
+        LLM["Local LLM Interface\n(Ollama / vLLM)"]
+        PDFProc["PDF Processor & Extractor"]
+        Caption["Image Captioner"]
+    end
+
+    %% Ingestion Flow
+    Ingest -->|"Save File"| PDFs
+    Ingest -->|"Process"| PDFProc
+    PDFProc -->|"Read"| PDFs
+    
+    PDFProc -->|"Extract Text"| Embed
+    Embed -->|"Text Vectors"| FAISS
+    
+    PDFProc -->|"Extract Visuals"| Caption
+    Caption -->|"Generate Captions"| Embed
+    Embed -->|"Caption Vectors"| VisDB
+    Caption -->|"Save Visual Metadata"| VisDB
+
+    %% Search Flow
+    Search -->|"Query Embedding"| Embed
+    Search -->|"Vector Search"| FAISS
+    Search -->|"Cosine Sim Search"| VisDB
+    VisDB -->|"Visual Results"| Rank
+    FAISS -->|"Text Results"| Rank
+
+    %% Chatbot Flow
+    Chat -->|"Retrieve Context"| Search
+    Search -->|"Context Chunks"| Chat
+    Chat -->|"Construct System Prompt"| ContextBuilder["Context Builder"]
+    ContextBuilder -->|"Prompt + Context"| LLM
+    LLM -->|"Streamed Tokens"| Chat
+    Chat -->|"Response Stream"| API

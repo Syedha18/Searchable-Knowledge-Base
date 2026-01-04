@@ -1,63 +1,88 @@
 # src/config/settings.py
+"""
+This module serves as the single source of truth for system-wide configuration parameters.
+"""
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# __file__ is 'src/config/settings.py'
+# __file__ = src/config/settings.py
 CONFIG_DIR = Path(__file__).resolve().parent
 SRC_DIR = CONFIG_DIR.parent
 ROOT_DIR = SRC_DIR.parent
 
-# This matches your uploaded file structure
+# Source data (checked into repo or mounted volume)
 DATA_DIR = SRC_DIR / "data"
 PDF_FOLDER = DATA_DIR / "sample_pdfs"
 
-# It's cleaner to put generated files (index, logs) in a top-level folder
-# This separates 'source data' (in src/data) from 'artifacts' (in storage/)
+# Generated artifacts (indexes, visuals, logs)
 STORAGE_DIR = ROOT_DIR / "storage"
+VISUAL_DATA_DIR = STORAGE_DIR / "visual_data"
 INDEX_FILE = STORAGE_DIR / "skb.index"
 LOG_FILE = STORAGE_DIR / "skb_api.log"
 
-VISUAL_DATA_DIR = STORAGE_DIR / "visual_data"
+EMBEDDING_MODEL = os.getenv(
+    "EMBEDDING_MODEL",
+    "all-MiniLM-L6-v2"
+)
 
-# The model used to create vectors
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-# The dimension of the model. 
-# While we can get this from the model, it's good to have for FAISS.
-EMBEDDING_DIM = 384
+EMBEDDING_DIM = int(os.getenv(
+    "EMBEDDING_DIM",
+    384
+))
 
-# This is the "control panel" for your FAISSIndexer
+
 FAISS_CONFIG = {
-    # 'ivfpq' is a fast and memory-efficient index.
-    # 'flat_l2' is slower but 100% accurate (good for <1M docs)
-    "index_type": "ivfpq",
-    "nlist": 100,     # Number of clusters (for 'ivfpq')
-    "m": 8,           # Number of sub-quantizers (for 'ivfpq')
-    "bits": 8,        # Bits per sub-quantizer (for 'ivfpq')
-    "metric": "L2",   # L2 (Euclidean) is standard for MiniLM
-    "use_gpu": False  # Set to True if you have CUDA and faiss-gpu installed
+    # Index type: flat_l2 | ivf | ivfpq | hnsw
+    "index_type": os.getenv("FAISS_INDEX_TYPE", "ivfpq"),
+
+    # IVF / IVFPQ parameters
+    "nlist": int(os.getenv("FAISS_NLIST", 100)),
+    "m": int(os.getenv("FAISS_M", 8)),
+    "bits": int(os.getenv("FAISS_BITS", 8)),
+
+    # Distance metric: L2 or IP
+    "metric": os.getenv("FAISS_METRIC", "L2"),
+
+    # GPU usage
+    "use_gpu": os.getenv("FAISS_USE_GPU", "false").lower() == "true",
 }
 
-# Use os.getenv() to read from environment variables first
-# This lets you change the host without touching the code
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-LLM_MODEL = os.getenv("LLM_MODEL", "llama3:instruct") # The model to use for chat
+OLLAMA_HOST = os.getenv(
+    "OLLAMA_HOST",
+    "http://localhost:11434"
+)
 
-API_HOST = "0.0.0.0"  # Listen on all network interfaces
-API_PORT = 8000
+LLM_MODEL = os.getenv(
+    "LLM_MODEL",
+    "llama3:instruct"
+)
 
-LOG_LEVEL = "INFO" # e.g., "DEBUG", "INFO", "WARNING"
+API_HOST = os.getenv("API_HOST", "0.0.0.0")
+API_PORT = int(os.getenv("API_PORT", 8000))
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-# --- Create directories if they don't exist ---
-STORAGE_DIR.mkdir(exist_ok=True)
-PDF_FOLDER.mkdir(exist_ok=True)
+USE_MONGODB = os.getenv(
+    "USE_MONGODB",
+    "true"
+).lower() == "true"
 
-DOCUMENT_PUBLIC_PATH = "/pdfs"  
-# The base URL the frontend uses to serve PDFs.
+MONGO_URI = os.getenv(
+    "MONGO_URI",
+    "mongodb://localhost:27017"
+)
+
+MONGO_DB_NAME = os.getenv(
+    "MONGO_DB_NAME",
+    "skb"
+)
+
+DOCUMENT_PUBLIC_PATH = "/pdfs"
 DOCUMENT_SERVER_URL = f"http://localhost:{API_PORT}{DOCUMENT_PUBLIC_PATH}/"
 
-MONGO_URI = "mongodb://localhost:27017"
-MONGO_DB_NAME = "skb"
-USE_MONGODB = True
+STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+PDF_FOLDER.mkdir(parents=True, exist_ok=True)
+VISUAL_DATA_DIR.mkdir(parents=True, exist_ok=True)

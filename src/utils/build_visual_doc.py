@@ -29,6 +29,7 @@ def build_visual_documents(pdf_name: str, visual_results: dict):
             "table_metadata": {
                 "rows": tbl.get("rows"),
                 "columns": tbl.get("columns"),
+                "headers": tbl.get("headers", []),
             },
             "created_at": datetime.utcnow(),
         })

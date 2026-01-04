@@ -2,6 +2,7 @@
 import faiss
 import numpy as np
 from typing import List, Dict, Optional
+from src.schemas.search import SearchResult
 from sentence_transformers import SentenceTransformer
 import os
 import json  
@@ -86,7 +87,7 @@ class FAISSIndexer:
 
 
 
-    def search(self, query: str, top_k: int = 10) -> List[Dict]:
+    def search(self, query: str, top_k: int = 10) -> List[SearchResult]:
         """
         Embeds a query string and returns top_k results.
         """
@@ -108,15 +109,13 @@ class FAISSIndexer:
                 heading = clean_text_start(chunk_data.get("heading", "No Heading"))
                 text = clean_text_start(chunk_data.get("text", ""))
 
-                results.append({
-                    "heading": heading,
-                    "text": text,
-                    "distance": float(dist),
-
-                    # This maps your extractor's keys to the frontend's keys
-                    "file_name": chunk_data.get("source_file", "Unknown File"),
-                    "page_number": chunk_data.get("page_number", 1)
-                })
+                results.append(SearchResult(
+                    heading=heading,
+                    text=text,
+                    distance=float(dist),
+                    file_name=chunk_data.get("source_file", "Unknown File"),
+                    page_number=chunk_data.get("page_number", 1)
+                ))
         return results
 
     def save(self, file_path: Path):
