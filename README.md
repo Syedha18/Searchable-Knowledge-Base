@@ -1,128 +1,265 @@
 # Searchable Knowledge Base (SKB)
 
-A comprehensive Retrieval-Augmented Generation (RAG) system that indexes PDF documents and provides a reasoning chatbot interface to query the knowledge base. The system uses a local LLM (Ollama) for privacy and offline capabilities, FAISS for efficient vector similarity search, and a modern React frontend.
+Searchable Knowledge Base (SKB) is a **semantic and multimodal Retrieval-Augmented Generation (RAG) system** designed to index PDF documents and enable natural-language querying through a reasoning chatbot.
 
-## 🚀 Features
+The system focuses on **clean architecture, modular design, and local-first execution**, using a local LLM for privacy, FAISS for efficient vector search, and a modern React frontend for interaction.
 
-- **Document Ingestion**: Automatically extracts text and structural metadata (headings) from PDF documents.
-- **Vector Search**: Uses [FAISS](https://github.com/facebookresearch/faiss) for fast and scalable similarity search.
-- **Local LLM**: Integrated with [Ollama](https://ollama.com/) for local, private, and customizable inference.
-- **Reasoning Engine**: Generates answers with citations, pointing back to the specific source documents and chunks.
-- **Hybrid Architecture**:
-  - **Backend**: Python-based (FastAPI, FAISS, Sentence Transformers).
-  - **Frontend**: React (Vite, Tailwind CSS, TypeScript).
+---
+
+## 🚀 Key Features
+
+* **PDF Ingestion Pipeline**
+
+  * Extracts text, headings, tables, and images from PDF documents
+  * Supports scanned PDFs via OCR
+  * Robust to partial extraction failures
+
+* **Semantic Vector Search**
+
+  * Uses FAISS for fast similarity search over embedded document chunks
+  * Sentence-Transformer embeddings for semantic retrieval
+
+* **Local LLM Reasoning**
+
+  * Integrated with Ollama for local, private inference
+  * Answers grounded in retrieved document context
+  * Returns cited sources for transparency
+
+* **Clean, Modular Architecture**
+
+  * Separation of concerns between indexing, retrieval, prompt construction, and API
+  * Strong typing with Pydantic models across the internal pipeline
+  * Centralized configuration (single source of truth)
+
+* **Modern Frontend**
+
+  * React + TypeScript UI
+  * Displays answers alongside source documents and tables
+
+---
 
 ## 🛠️ Tech Stack
 
 ### Backend
-- **Language**: Python 3.12+
-- **Framework**: FastAPI (API), Uvicorn (Server)
-- **RAG & ML**:
-  - `faiss-cpu`: Vector database
-  - `sentence-transformers`: Embeddings (`all-MiniLM-L6-v2`)
-  - `pdfplumber`, `pymupdf` (Fitz): PDF extraction and OCR
-- **LLM Integration**: Custom interface for Ollama
+
+* **Language**: Python 3.12+
+* **Framework**: FastAPI
+* **Vector Search**: FAISS (CPU)
+* **Embeddings**: `sentence-transformers` (`all-MiniLM-L6-v2`)
+* **PDF Processing**: `pdfplumber`, `PyMuPDF (fitz)`, OCR support
+* **LLM Interface**: Ollama (local inference)
+* **Optional Persistence**: MongoDB (via `motor`)
 
 ### Frontend
-- **Framework**: React 18
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS
-- **Language**: TypeScript
+
+* **Framework**: React 18
+* **Language**: TypeScript
+* **Build Tool**: Vite
+* **Styling**: Tailwind CSS
+
+---
 
 ## 📋 Prerequisites
 
-- **Python**: 3.12 or higher
-- **Node.js**: 18+ (for frontend)
-- **Ollama**: Installed and running (default model: `llama3` or adaptable in config)
-- **Package Managers**: `uv` (recommended for Python) or `pip`; `pnpm` (recommended for Node) or `npm`.
+* **Python**: 3.12 or higher
+* **Node.js**: 18+
+* **Ollama**: Installed and running locally
+* **MongoDB (Optional)**:
+  Used only for persistence (chat history / metadata).
+  **Not required** for core indexing, retrieval, or chatbot functionality.
+
+---
+
+## ⚙️ Configuration
+
+The application is configured via environment variables.
+
+### MongoDB (Optional Persistence)
+
+MongoDB is used **only for optional persistence**, such as storing chat history and metadata.
+
+The **core SKB pipeline** — PDF ingestion, vector indexing, retrieval, and LLM-based answering — works **without MongoDB**.
+
+If MongoDB is disabled or unavailable, the system runs in a **stateless mode**.
+
+---
+
+### Environment Setup
+
+1. Copy the example environment file:
+
+```bash
+cp src/.env.example src/.env
+```
+
+2. Edit `src/.env` as needed.
+
+#### Enable MongoDB (Optional)
+
+```ini
+USE_MONGODB=true
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB_NAME=skb
+```
+
+MongoDB Atlas can also be used by providing a cloud connection string.
+
+#### LLM & Embeddings
+
+```ini
+LLM_MODEL=llama3
+EMBEDDING_MODEL=all-MiniLM-L6-v2
+```
+
+---
 
 ## 📦 Installation
 
 ### 1. Clone the Repository
+
 ```bash
 git clone <repository-url>
-cd SKB
+cd Searchable-Knowledge-Base
 ```
 
+---
+
 ### 2. Backend Setup
-Recommended to use `uv` for fast dependency management.
+
+Recommended: use `uv` for fast dependency management.
 
 ```bash
-# Install uv if you haven't
+# Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Sync dependencies (creates .venv)
+# Install dependencies
 uv sync
+```
 
-# Alternatively, using pip
+Alternative using `pip`:
+
+```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -e .
 ```
 
+---
+
 ### 3. Frontend Setup
+
 ```bash
 cd frontend
 pnpm install
 # or npm install
 ```
 
+---
+
 ### 4. Ollama Setup
-Ensure Ollama is installed and running. Pull the default embedding and chat models:
+
+Ensure Ollama is running and pull a model:
+
 ```bash
 ollama pull llama3:instruct
 ```
-*Note: Update `src/config` or `chatbot/llm_interface.py` if you wish to use a different model.*
+
+---
 
 ## 🏃 Usage
 
-### 1. Indexing Documents
-Place your PDF files in `src/data/sample_pdfs`.
-Run the indexing script (embedded in `run_chatbot.py` or customize `main.py`):
+### 1. Index Documents
+
+Place PDF files in:
+
+```
+src/data/sample_pdfs/
+```
+
+Run:
 
 ```bash
 uv run python run_chatbot.py
 ```
-*This script checks for an existing index. If missing, it processes the PDFs in `src/data/sample_pdfs` and builds `storage/skb.index`.*
 
-### 2. Running the API
-Start the FastAPI backend:
+* Automatically builds the FAISS index if missing
+* Stores the index under `storage/`
+
+---
+
+### 2. Run Backend API
+
 ```bash
 uv run uvicorn chatbot.chatbot_api:app --reload --port 8000
 ```
 
-### 3. Running the Frontend
-Start the React development server:
+---
+
+### 3. Run Frontend
+
 ```bash
 cd frontend
 pnpm dev
 ```
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+Open:
+
+```
+http://localhost:5173
+```
+
+---
 
 ## 📂 Project Structure
 
 ```
 SKB/
-├── chatbot/                # Chatbot service & API logic
-│   ├── chatbot_api.py      # FastAPI application
-│   ├── chatbot_service.py  # Core service logic
-│   └── llm_interface.py    # Adapter for Ollama
+├── chatbot/                # Chatbot services & prompt logic
 ├── frontend/               # React + TypeScript frontend
-├── src/                    # Core RAG implementation
-│   ├── api/                # Additional API routes
-│   ├── data/               # Raw data (PDFs)
-│   ├── index/              # FAISS wrapper & indexing logic
-│   └── utils/              # PDF extractors & helpers
+├── src/
+│   ├── api/                # API routes
+│   ├── index/              # FAISS indexing & search
+│   ├── schemas/            # Pydantic domain models
+│   ├── utils/              # PDF extraction & helpers
+│   └── data/               # Sample PDFs
 ├── storage/                # Persisted FAISS indices
-├── main.py                 # Indexing/Testing script
-├── run_chatbot.py          # Unified runner script
-├── pyproject.toml          # Python project config
-└── package.json            # Frontend project config
+├── Project_report/         # Final project report
+├── Submission_ppt/         # Submission presentation
+├── run_chatbot.py          # Unified runner
+└── README.md
 ```
 
-## 🤝 Contributing
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+---
 
+## ⚠️ Limitations & Future Work
 
+**Current Limitations**
+
+* Visual search uses linear scans for image/table metadata
+* OCR and image captioning are sequential
+* Single-node FAISS index
+
+**Planned Improvements**
+
+* Vectorized indexing for images and tables
+* Parallel OCR and GPU-batched captioning
+* Distributed and production-grade indexing
+* Advanced query rewriting for improved retrieval
+
+---
+
+## 📄 Submission Materials
+
+This repository includes:
+
+* 📘 Full project report (`Project_report/`)
+* 📊 Submission presentation (`Submission_ppt/`)
+
+No external links are required.
+
+---
+
+## 🧠 Design Philosophy
+
+> Prioritize correctness, clarity, and maintainability over feature bloat.
+> Build systems that are explainable, extensible, and honest about their limits.
