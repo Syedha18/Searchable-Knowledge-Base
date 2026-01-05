@@ -304,6 +304,7 @@ async def post_unified_search(
         # -----------------------------
         if USE_MONGODB:
             visual_records = await get_visuals_by_pdfs(list(related_pdfs))
+            print(f"[DEBUG] Found {len(visual_records)} visual records for related PDFs")
 
             for record in visual_records:
                 item_type = record.get("type")
@@ -324,6 +325,7 @@ async def post_unified_search(
                         query_embedding,
                         get_embedding(caption)
                     )
+                    print(f"[DEBUG] Image: {filename} | Score: {score}")
 
                     if score > 0.10:
                         visuals.append({
@@ -356,7 +358,7 @@ async def post_unified_search(
                         get_embedding(desc)
                     )
 
-                    if score > 0.50:
+                    if score > 0.10:
                         visuals.append({
                             "filename": filename,
                             "page": page_number,

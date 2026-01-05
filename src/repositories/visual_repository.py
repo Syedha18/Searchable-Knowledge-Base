@@ -14,4 +14,4 @@ async def delete_by_pdf(pdf_name: str):
 async def get_visuals_by_pdfs(pdf_names: list[str]):
     db = get_db()
     cursor = db[COLLECTION].find({"pdf_name": {"$in": pdf_names}})
-    return await cursor.to_list(length=100)
+    return await cursor.to_list(length=2000)
